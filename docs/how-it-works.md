@@ -714,10 +714,18 @@ and how many patterns were detected.
 For example, if Social Withdrawal is detected at HIGH severity, this table
 might store a push notification to be sent.
 
-**Authentication pattern:** OAuth tokens for Google and Todoist are in
-Supabase Vault, never in environment variables or code. A file at
-`backend/src/auth/token_refresh.py` handles refreshing expired tokens.
-This file must be built first before any MCP connections can work.
+**Authentication pattern:** OAuth tokens for Google and Todoist are stored in
+the `user_oauth_tokens` table (migration `002_oauth_tokens.sql`), never in
+environment variables or code. The `provider` column has a database-level
+check constraint (`'google'` or `'todoist'`). In production, `access_token`
+and `refresh_token` must be encrypted at rest using Supabase's `pgsodium`
+extension — documented in the migration, not yet implemented.
+
+`backend/src/auth/token_refresh.py` is the single entry point for all token
+operations. `ensure_fresh_token(user_id, provider)` returns a valid token,
+refreshing automatically if expiry is within 10 minutes. Todoist uses a static
+API token with no expiry — the refresh path for Todoist exists but is never
+triggered in practice (`expires_at` is null, treated as always fresh).
 
 **Hook authentication:** Every HTTP POST from Claude Code hooks to the
 backend must include an `X-Clarity-Secret` header. The backend validates
@@ -757,9 +765,15 @@ Layer-specific rules: `backend/CLAUDE.md`
 - Built with FastAPI, Pydantic, Python 3.11. Deployed to Railway.
 - Routes in `src/routes/` (one file per domain)
 - All database operations go through `src/db/` — never raw SQL in routes
-- `src/db/client.py` must be created first — every route depends on it
-- `src/auth/token_refresh.py` must be created second — MCP connections
-  depend on valid OAuth tokens
+- `src/db/client.py` — created. Single Supabase client, cached per process
+  via `@lru_cache`. Contains `save_weekly_snapshot`, `save_weekly_report`,
+  and `save_pattern_signals`. All routes must import from here only.
+- `src/auth/token_refresh.py` — created. Single public function:
+  `ensure_fresh_token(user_id, provider)` returns a valid access token,
+  refreshing it automatically if it expires within 10 minutes. Tokens
+  are stored in a `user_oauth_tokens` Supabase table (not in env vars).
+  `check_all_tokens(user_id)` reports status of all provider tokens
+  without triggering a refresh — used by the session-start hook.
 
 **Hook endpoint** (`POST /api/hooks/session-stop`):
 - Validates `X-Clarity-Secret` header against `CLARITY_HOOK_SECRET` env var
@@ -834,7 +848,7 @@ during a session and rotated after 4 weeks.
 | `calendar-` | ingest-calendar | Meeting load signals for the week |
 | `email-` | ingest-email | Email volume and stress signals |
 | `tasks-` | ingest-tasks | Task completion and avoidance signals |
-| `financial-` | ingest-financial (not yet built) | Spending signals and stress indicators |
+| `finance-` | ingest-financial | Spending signals and stress indicators |
 | `snapshot-` | analyze-week | Merged view of all signal types |
 | `patterns-` | detect-patterns | Detected patterns with severity and evidence |
 | `report-` | generate-report | The final report in Markdown and JSON |

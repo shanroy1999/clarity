@@ -74,3 +74,17 @@ create table alert_triggers (
   delivered boolean default false,
   delivery_channel text default 'push'
 );
+
+-- OAuth token storage
+-- access_token and refresh_token should be encrypted at rest
+-- via Supabase's pgsodium extension in production
+create table user_oauth_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  provider text not null,              -- 'google' | 'todoist'
+  access_token text not null,
+  refresh_token text,                  -- null for non-refreshable tokens
+  expires_at timestamptz,
+  updated_at timestamptz default now(),
+  unique(user_id, provider)
+);

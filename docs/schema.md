@@ -134,3 +134,56 @@ def verify_hook_secret(x_clarity_secret: str = Header(...)):
     if x_clarity_secret != os.environ["CLARITY_HOOK_SECRET"]:
         raise HTTPException(status_code=403, detail="Invalid hook secret")
 ```
+### user_oauth_tokens
+OAuth token storage. access_token and refresh_token should be
+encrypted at rest using Supabase pgsodium in production.
+Never query this table from agents — use backend/src/auth/token_refresh.py.
+
+```sql
+create table user_oauth_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  provider text not null,
+  access_token text not null,
+  refresh_token text,
+  expires_at timestamptz,
+  updated_at timestamptz default now(),
+  unique(user_id, provider)
+);
+```
+
+## Token lifecycle
+- Tokens stored by OAuth callback handler (not yet built)
+- ensure_fresh_token() called before every MCP session
+- Refresh happens automatically if expiry < 10 minutes away
+- Re-authorization required if refresh_token is missing or revoked
+- Google sometimes omits refresh_token on subsequent refreshes —
+  always preserve the existing one when that happens
+
+## Token lifecycle (corrected)
+- Google Calendar + Gmail: OAuth2 with refresh tokens
+  - access_token expires after 60 minutes
+  - ensure_fresh_token() refreshes automatically within 10 minute buffer
+  - refresh_token preserved across refreshes (Google omits on subsequent)
+  - Re-authorization required if refresh_token is revoked
+
+- Todoist: static API token
+  - Set once in .env as TODOIST_API_TOKEN
+  - Stored in user_oauth_tokens with no expires_at
+  - check_all_tokens() reports "static" — never "expiring" or "expired"
+  - User must regenerate manually in Todoist settings if revoked
+  - No _refresh_todoist_token function — intentionally omitted
+
+## Token lifecycle (corrected)
+- Google Calendar + Gmail: OAuth2 with refresh tokens
+  - access_token expires after 60 minutes
+  - ensure_fresh_token() refreshes automatically within 10 minute buffer
+  - refresh_token preserved across refreshes (Google omits on subsequent)
+  - Re-authorization required if refresh_token is revoked
+
+- Todoist: static API token
+  - Set once in .env as TODOIST_API_TOKEN
+  - Stored in user_oauth_tokens with no expires_at
+  - check_all_tokens() reports "static" — never "expiring" or "expired"
+  - User must regenerate manually in Todoist settings if revoked
+  - No _refresh_todoist_token function — intentionally omitted

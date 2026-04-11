@@ -57,4 +57,31 @@ else
   echo "Cache: no snapshots yet — run /analyze-week to generate one"
 fi
 
+# Token health check (requires ANTHROPIC_API_KEY and a logged-in user)
+# Skip silently if no user context available yet
+if [ -f ".env" ] && command -v python3 &> /dev/null; then
+  python3 - << 'PYEOF' 2>/dev/null || true
+import asyncio, sys, os
+sys.path.insert(0, os.getcwd())
+
+async def check():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        from backend.src.auth.token_refresh import check_all_tokens
+        # Use a dev user ID from env, skip if not set
+        user_id = os.environ.get("CLARITY_DEV_USER_ID")
+        if not user_id:
+            return
+        status = await check_all_tokens(user_id)
+        for provider, state in status.items():
+            icon = "ok" if state == "fresh" else "WARN"
+            print(f"Token {provider}: {state} [{icon}]")
+    except Exception:
+        pass  # Never block session start on token check failure
+
+asyncio.run(check())
+PYEOF
+fi
+
 echo "================================"
