@@ -1,0 +1,76 @@
+{
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/session-start.sh"
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/validate-agent-structure.sh"
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/run-tests-on-edit.sh"
+                    }
+                ]
+            }
+        ],
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": "You are a quality reviewer for Clarity weekly reports. Read the last assistant message. If it contains a weekly report or insight, check: (1) Does it cite specific numbers from the data? (2) Does it avoid generic advice? (3) Is it under 400 words? If all three pass, respond with {\"decision\": \"approve\"}. If any fail, respond with {\"decision\": \"block\", \"reason\": \"explain what was wrong\"}. If no report was generated this turn, respond with {\"decision\": \"approve\"}.",
+                        "async": false
+                    },
+                    {
+                        "type": "http",
+                        "url": "http://localhost:8000/api/hooks/session-stop",
+                        "method": "POST",
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "SubagentStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/agent-timer.sh",
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "SubagentStop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/agent-timer.sh",
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "Notification": []
+    }
+}
