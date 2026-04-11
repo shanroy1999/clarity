@@ -103,6 +103,56 @@ external APIs (Google Calendar, Gmail, Todoist) as if they were built-in tools.
 MCP servers act as bridges. When Clarity says "fetch my calendar for this week",
 it is calling an MCP server which handles the actual Google API communication.
 
+Clarity uses four MCP servers configured in `.claude/settings.json`. They come
+in two types — `url` (remote servers on the internet) and `stdio` (a process
+running on your own machine):
+
+| Server key | Type | What it accesses | Why that type |
+|---|---|---|---|
+| `google-calendar` | `url` | Google Calendar events | Google runs this server; we connect to it |
+| `gmail` | `url` | Gmail metadata only | Google runs this server; we connect to it |
+| `todoist` | `url` | Todoist tasks | Todoist runs this server; we connect to it |
+| `clarity-financial` | `stdio` | Financial data | Runs locally — data never leaves your machine |
+
+All four use `scope: "project"` — they are only active inside the Clarity
+project directory, not in any other Claude Code session on your machine.
+This is intentional: personal data sources should never be reachable from
+an unrelated project.
+
+**How `type: "url"` works:** Claude Code sends HTTP requests to a server
+already running on the internet. The server handles authentication (OAuth2
+for Google, a bearer token for Todoist) and returns data over the network.
+
+**How `type: "stdio"` works:** Claude Code runs your Python script as a
+subprocess (`python3 -m backend.mcp_servers.financial`) and communicates
+through pipes — the same mechanism as a Unix pipe. Claude Code writes JSON
+requests to the process's stdin, the process writes JSON responses to stdout.
+No network is involved. The process stays alive for the entire session.
+
+The financial server uses `${workspaceFolder}` as PYTHONPATH — a Claude Code
+built-in that resolves to the project root — so Python can find the `backend`
+package without installation.
+
+**Critical rule for stdio servers:** The Python process must only write valid
+MCP protocol JSON to stdout. Any `print()` statement or debug output that goes
+to stdout will corrupt the protocol. All debug output must go to stderr.
+
+**Why financial data uses stdio:** Financial data is the most sensitive data
+Clarity touches. With `type: "url"`, data would travel over the network to an
+external server and back. With `type: "stdio"`, everything stays in memory
+on your machine — fetched, processed, and returned through a local pipe.
+
+**Tool naming convention:** Once a server connects, its tools are available
+as `mcp__{server-key}__{tool-name}`. For example, the key `google-calendar`
+exposes tools like `mcp__google-calendar__list_events`. This exact string
+is what the `analyze-week` skill lists in its `allowed-tools` frontmatter.
+
+**How credentials reach the servers:** Values like `${GOOGLE_CLIENT_ID}` in
+`settings.json` are resolved from your shell environment at session start.
+They must be exported in your shell profile or via a tool like `direnv`
+loading a gitignored `.env` file. If a variable is missing, the server's
+auth handshake fails silently and its tools are unavailable for that session.
+
 **Vercel** — where the Next.js frontend is deployed (hosted on the internet).
 
 **Railway** — where the FastAPI backend is deployed.
@@ -162,6 +212,14 @@ is running, and the state of the local data cache.
 to write a Python file to the `agents/` folder, the script checks that the file
 meets Clarity's structural requirements. If it does not, the write is cancelled.
 
+**PreToolUse (mcp__)** — before any MCP tool call executes, runs
+`mcp-access-guard.sh`. This is a second gatekeeper specifically for external
+data access. It checks the tool name for dangerous verbs — create, delete,
+update, modify, write, send, insert, patch, post. If any are found, the call
+is cancelled immediately with exit code 2. Clarity is a read-only system;
+it must never write to your calendar, send emails, or modify your task list.
+Approved calls are logged to `.clarity-audit.jsonl` before they execute.
+
 **PostToolUse (Write)** — after Claude writes any file, runs
 `run-tests-on-edit.sh`. If Claude just wrote a Python file in the `backend/`
 folder, this script automatically runs the test suite to check nothing broke.
@@ -171,6 +229,11 @@ runs `audit-logger.sh` in the background. This creates a permanent record
 of everything Claude accessed during the session, especially any personal data
 fetched via MCP. "Async" means this runs in the background without making
 Claude wait for it to finish.
+
+The MCP guard and the audit logger are complementary: the guard logs
+`mcp_access_approved` before a call executes (PreToolUse), and the audit
+logger logs `mcp_data_access` after it returns (PostToolUse). Together they
+bookend every MCP call — approved at entry, confirmed at exit.
 
 **Stop** — when Claude finishes generating a response, two things happen in order:
 1. `quality-gate.sh` checks if the response was a Clarity report, and if so,
@@ -671,70 +734,90 @@ This file. The complete end-to-end guide.
 
 ## Part 3: The Application Code
 
-The application code (frontend, backend, agents) is defined but not yet built.
-The documents, database schema, coding rules, and Claude Code configuration
-are complete. This section describes what will be built in each directory.
-
 ---
 
 ### frontend/ — The Next.js Web Application
 
-Will contain the website users see. Based on the architecture and tech stack:
+Layer-specific rules: `frontend/CLAUDE.md`
 
-- Built with Next.js 14 (App Router), TypeScript, and Tailwind CSS
-- Deployed to Vercel
-- Key pages:
-  - Dashboard — shows the current week's report and patterns
-  - Report view — the full weekly report with visualisations
-  - Conversation — chat interface for asking follow-up questions
-  - Settings — connect/disconnect Google Calendar, Gmail, Todoist, finance
-
-**Important rule:** The frontend never makes direct API calls to Google,
-Todoist, or Claude. All AI and external data calls go through the backend.
-The frontend only talks to `backend/`.
+- Built with Next.js 14 (App Router), TypeScript, Tailwind CSS. Deployed to Vercel.
+- Server components by default; client components only when interactivity is needed
+- Server state via React Query (TanStack Query), global client state via Zustand
+- All API calls go through `src/lib/api.ts` — never fetch directly from components
+- Key pages: Dashboard, Report view, Conversation (follow-up questions), Settings
+- **Rule:** The frontend never calls Google, Todoist, or Claude directly.
+  It only talks to the FastAPI backend.
 
 ---
 
 ### backend/ — The FastAPI Server
 
-Will contain the Python server. Deployed to Railway.
+Layer-specific rules: `backend/CLAUDE.md`
 
-- Built with FastAPI and Pydantic, Python 3.11
-- Connects to Supabase as the database
-- Key responsibilities:
-  - User authentication (Supabase Auth)
-  - OAuth token management (connecting Google, Todoist accounts)
-  - Hook endpoints (receives HTTP POSTs from Claude Code hooks)
-  - Storing and retrieving snapshots, patterns, and reports from Supabase
-  - Serving report data to the frontend
-
-The first file to build is `backend/src/auth/token_refresh.py` — the
-OAuth token refresh logic. Nothing else can work until tokens are managed.
+- Built with FastAPI, Pydantic, Python 3.11. Deployed to Railway.
+- Routes in `src/routes/` (one file per domain)
+- All database operations go through `src/db/` — never raw SQL in routes
+- `src/db/client.py` must be created first — every route depends on it
+- `src/auth/token_refresh.py` must be created second — MCP connections
+  depend on valid OAuth tokens
 
 **Hook endpoint** (`POST /api/hooks/session-stop`):
-- Must validate `X-Clarity-Secret` header against `CLARITY_HOOK_SECRET` env var
+- Validates `X-Clarity-Secret` header against `CLARITY_HOOK_SECRET` env var
 - Receives notification when a Claude Code session ends
-- Can trigger cleanup tasks, persist session metadata, etc.
+
+**Financial MCP server** (`backend/mcp_servers/financial.py`):
+This is the first real application code written. It is a stdio MCP server
+built with FastMCP that exposes three tools:
+
+- `get_weekly_spending` — spending by category for a given week. Reads
+  `data/transactions.csv`, classifies each transaction by keyword, returns
+  totals by category. Transaction descriptions are classified then discarded —
+  they never appear in the return value.
+- `get_monthly_average` — 3-month average weekly spend as a baseline.
+  Used to compute how far above or below average the current week is.
+- `get_stress_signals` — calls the above two tools internally and computes
+  derived stress signals: food delivery spikes (>150% of average = HIGH severity),
+  overall overspend (>40% above average = MEDIUM severity).
+
+**Test data** (`data/transactions.csv`):
+14 transactions for the week of 2026-04-07. Four Uber Eats orders totalling
+£110 in one week — deliberately constructed to trigger the food delivery spike
+stress signal and demonstrate the depletion cascade pattern visible in the
+example report.
+
+**Dependency not yet met:** FastMCP must be installed (`pip install fastmcp`)
+and a `requirements.txt` does not yet exist. The server will fail to start
+until this is in place.
 
 ---
 
 ### agents/ — The AI Agent Code
 
-Will contain the Python orchestration code for the four AI agents.
-All agents must follow the rules in `.claude/rules/agents.md`:
+Layer-specific rules: `agents/CLAUDE.md`
 
-- Typed input and output dataclasses
-- Single `async def run()` entry point
-- Maximum 300 lines per file
-- Structlog logging at INFO level for every decision
-- Specific error handling with defined fallback behaviour
+- Stateless — all persistent state goes to Supabase, never held in agent memory
+- Typed input and output dataclasses on every agent
+- Single `async def run()` entry point per file
+- Maximum 300 lines per file (enforced by `validate-agent-structure.sh`)
+- Tests in `tests/agents/`
 
-The agents are coordinated by an orchestrator (not yet built) that:
-1. Calls `pattern-detector` and `load-analyzer` in parallel (they can
-   run simultaneously since they read the same snapshot independently)
-2. Waits for both to finish
-3. Passes their results to `insight-writer`
-4. Returns the report
+**Agent access control** (`docs/mcp-access-control.md`):
+Each agent only gets access to the MCP servers it needs (least privilege):
+
+| Agent | Calendar | Gmail | Todoist | Financial |
+|---|---|---|---|---|
+| pattern-detector | read | read | read | — |
+| load-analyzer | read | — | — | read |
+| insight-writer | — | — | — | — |
+| conversation | — | — | — | — |
+
+insight-writer and conversation are fully sandboxed — they read only from
+`.clarity-cache/` and never touch raw data sources. Enforced via
+`allowed-mcp-servers` and `denied-mcp-servers` in subagent frontmatter
+(subagent `.md` files in `.claude/agents/` not yet created).
+
+The orchestrator (not yet built) runs pattern-detector and load-analyzer
+in parallel, then passes both results to insight-writer.
 
 ---
 
@@ -751,7 +834,8 @@ during a session and rotated after 4 weeks.
 | `calendar-` | ingest-calendar | Meeting load signals for the week |
 | `email-` | ingest-email | Email volume and stress signals |
 | `tasks-` | ingest-tasks | Task completion and avoidance signals |
-| `snapshot-` | analyze-week | Merged view of all three signal types |
+| `financial-` | ingest-financial (not yet built) | Spending signals and stress indicators |
+| `snapshot-` | analyze-week | Merged view of all signal types |
 | `patterns-` | detect-patterns | Detected patterns with severity and evidence |
 | `report-` | generate-report | The final report in Markdown and JSON |
 

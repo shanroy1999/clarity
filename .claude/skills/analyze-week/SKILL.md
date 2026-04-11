@@ -16,6 +16,9 @@ allowed-tools:
   - mcp__google-calendar__list_events
   - mcp__gmail__list_messages
   - mcp__todoist__get_tasks
+  - mcp__clarity-financial__get_weekly_spending
+  - mcp__clarity-financial__get_monthly_average
+  - mcp__clarity-financial__get_stress_signals
 ---
 
 # Analyze week playbook
@@ -35,6 +38,7 @@ allowed-tools:
    - Calendar: fetch events for the week
    - Email: fetch message metadata for the week
    - Tasks: fetch tasks due or completed during the week
+   - Fetch financial data via MCP: Call ingest-financial skill on financial data for the week
 
 3. Run ingestion skills in sequence
    - Trigger ingest-calendar on calendar data
@@ -45,6 +49,7 @@ allowed-tools:
    - Read .clarity-cache/calendar-{date}.json
    - Read .clarity-cache/email-{date}.json
    - Read .clarity-cache/tasks-{date}.json
+   - Read .clarity-cache/finance-{date}.json
    - Write merged snapshot to .clarity-cache/snapshot-{date}.json
 
 5. Report what was found

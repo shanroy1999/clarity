@@ -1,4 +1,60 @@
 {
+    "env": {
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "CLARITY_HOOK_SECRET": "${CLARITY_HOOK_SECRET}"
+    },
+    "mcpServers": {
+        "google-calendar": {
+            "type": "url",
+            "url": "https://mcp.googleapis.com/calendar/v3",
+            "transport": "http",
+            "scope": "project",
+            "auth": {
+                "type": "oauth2",
+                "clientId": "${GOOGLE_CLIENT_ID}",
+                "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+                "scopes": [
+                    "https://www.googleapis.com/auth/calendar.readonly"
+                ]
+            }
+        },
+        "gmail": {
+            "type": "url",
+            "url": "https://mcp.googleapis.com/gmail/v1",
+            "transport": "http",
+            "scope": "project",
+            "auth": {
+                "type": "oauth2",
+                "clientId": "${GOOGLE_CLIENT_ID}",
+                "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+                "scopes": [
+                    "https://www.googleapis.com/auth/gmail.readonly"
+                ]
+            }
+        },
+        "todoist": {
+            "type": "url",
+            "url": "https://mcp.todoist.com/mcp",
+            "transport": "http",
+            "scope": "project",
+            "auth": {
+                "type": "bearer",
+                "token": "${TODOIST_API_TOKEN}"
+            }
+        },
+        "clarity-financial": {
+            "type": "stdio",
+            "command": "python3",
+            "args": [
+                "-m",
+                "backend.mcp_servers.financial"
+            ],
+            "scope": "project",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    },
     "hooks": {
         "SessionStart": [
             {
@@ -17,6 +73,15 @@
                     {
                         "type": "command",
                         "command": ".claude/hooks/validate-agent-structure.sh"
+                    }
+                ]
+            },
+            {
+                "matcher": "mcp__*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": ".claude/hooks/mcp-access-guard.sh"
                     }
                 ]
             }
