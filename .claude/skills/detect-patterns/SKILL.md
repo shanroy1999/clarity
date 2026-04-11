@@ -15,7 +15,25 @@ allowed-tools:
 # Pattern detection playbook
 
 ## Input
-Read .clarity-cache/snapshot-{most-recent-date}.json
+Read the last 4 weekly snapshots to enable cross-week comparison:
+
+```bash
+ls -t .clarity-cache/snapshot-*.json | head -4
+```
+
+Load all available snapshots (up to 4). If fewer than 4 exist, work
+with what's available and note the limited history.
+
+Label them: current (most recent), week-1, week-2, week-3.
+
+Cross-week comparison is required for accurate severity:
+- A pattern appearing once → severity LOW
+- A pattern appearing 2 consecutive weeks → severity MEDIUM  
+- A pattern appearing 3+ consecutive weeks → severity HIGH
+
+historical_frequency in the output is the count of prior weeks
+where this same pattern was detected. Never leave it at 0 unless
+this is genuinely the first occurrence.
 
 ## Pattern types to detect
 
