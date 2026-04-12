@@ -167,15 +167,34 @@ terminal, it writes structured JSON logs that can be searched and filtered.
 ```
 clarity/
 ├── frontend/          The Next.js website
-├── backend/           The FastAPI server
-├── agents/            The AI agent code
+├── backend/           The FastAPI server + financial MCP server
+│   ├── main.py        FastAPI entry point
+│   ├── requirements.txt  Backend Python dependencies
+│   ├── migrations/    SQL migration files (run with npx supabase db push)
+│   ├── mcp_servers/   The financial stdio MCP server
+│   └── src/
+│       ├── db/        Database client (import only from here)
+│       ├── auth/      OAuth token refresh logic
+│       └── routes/    FastAPI route files (one per domain)
+├── agents/            The AI agent code (Python orchestration, not yet built)
+├── data/              Local test data (transactions.csv)
 ├── docs/              Architecture documents and database schema
+├── requirements.txt   Root-level deps for MCP server only (fastmcp, structlog, etc.)
 └── .claude/           Configuration for Claude Code (the AI coding assistant)
     ├── skills/        Playbooks for specific tasks Claude can perform
     ├── hooks/         Shell scripts that run automatically at key moments
     ├── rules/         Coding standards Claude must follow
-    └── agents/        Subagent definitions (Phase 5, not yet built)
+    └── agents/        Subagent definitions (all four now created)
 ```
+
+**Two `requirements.txt` files — why:**
+- `requirements.txt` at the project root contains only the dependencies needed
+  to run the financial MCP server (`fastmcp`, `python-dotenv`, `supabase`,
+  `httpx`, `structlog`). This is installed in the project root environment
+  because the MCP server is launched from the root by Claude Code.
+- `backend/requirements.txt` contains everything the FastAPI server needs,
+  including the above plus `fastapi`, `uvicorn`, `pydantic`, `pytest`, and
+  `pytest-asyncio`. Installed separately in the backend environment.
 
 ---
 
@@ -199,6 +218,12 @@ Claude Code which shell scripts (hooks) to run at which moments in its lifecycle
 Think of it like a stage manager's cue sheet at a theatre: "When the curtain
 opens (SessionStart), run this script. Before an actor enters (PreToolUse),
 check their costume. After they leave (PostToolUse), record what happened."
+
+**Top-level `env` block:** `settings.json` also has an `env` key at the root
+level (not inside a specific server). This injects `ANTHROPIC_API_KEY` and
+`CLARITY_HOOK_SECRET` directly into Claude Code's own environment — making
+them available to hooks and the harness itself, not just to MCP server
+subprocesses. This is the right place for keys Claude Code or hooks need directly.
 
 The file currently has these hooks active:
 
@@ -643,6 +668,30 @@ to `.clarity-cache/`, so the frontend can display it.
 
 ---
 
+#### skill: ingest-financial
+
+**Invocation:** Auto — fires when financial MCP data appears in context.
+
+**What it does:** Calls all three financial MCP tools in sequence, computes
+`spend_vs_budget_pct` from the results, and writes a normalised cache file.
+Steps in order:
+
+1. Calls `mcp__clarity-financial__get_weekly_spending` for the current week
+2. Calls `mcp__clarity-financial__get_monthly_average` for the 3-month baseline
+3. Calls `mcp__clarity-financial__get_stress_signals` for derived stress flags
+4. Computes `spend_vs_budget_pct = ((weekly_total - monthly_avg) / monthly_avg) * 100`
+5. Writes `.clarity-cache/finance-{YYYY-MM-DD}.json`
+
+**Privacy rule:** Never stores merchant names, individual transaction amounts,
+or any raw transaction content. Only category totals, percentages, and stress flags.
+
+**Output schema includes:** `total_spend`, `spend_vs_budget_pct`, `by_category`
+(keyed by category name), `high_spend_categories`, `stress_signals`, `transaction_count`.
+
+**Allowed tools:** Read, Write, and all three `mcp__clarity-financial__*` tools.
+
+---
+
 #### skill: cleanup-cache
 
 **Invocation:** Manual — type `/cleanup-cache`. Only run when warned by
@@ -659,6 +708,96 @@ state files the quality gate needs).
 
 **After cleanup:** Reports how many files were deleted and the current
 remaining cache size.
+
+---
+
+### .claude/agents/ — Subagent Definitions
+
+**Skills vs subagents — the key difference:**
+
+A skill is a playbook that Claude follows inside the current conversation.
+Everything happens in the main session: the tool calls, the reasoning, the output.
+
+A subagent is a completely separate Claude process. The harness spawns it with
+its own context window, its own model, its own tool permissions, and its own
+memory configuration. It runs in isolation, does its work, writes its output
+to `.clarity-cache/`, and reports back. The main session never sees the
+intermediate reasoning — only the result.
+
+Skills have `invocation: auto|manual`. Subagents have `model:`, `allowed-tools:`,
+`allowed-mcp-servers:`, and `memory:` — configuration for a separately instantiated
+process.
+
+**The four subagent definitions:**
+
+---
+
+**`pattern-detector.md`**
+- Model: Claude Haiku (fast, cheap — pattern rules are deterministic)
+- Allowed MCP: google-calendar, gmail, todoist (read context if needed)
+- Denied MCP: clarity-financial (financial signals already in snapshot by the time this runs)
+- Memory: `user` — has access to Claude Code's persistent user memory store.
+  This matters because patterns the user has previously flagged as significant
+  should weight severity. Without memory, severity is computed from data alone;
+  with memory, qualitative user context can influence it.
+- Job: reads the last 4 weekly snapshots, detects depletion cascade, avoidance
+  loop, boundary erosion, social withdrawal. Writes `patterns-{date}.json`.
+- Critical rule: never leave `historical_frequency` at 0 without checking
+  prior snapshots.
+
+---
+
+**`load-analyzer.md`**
+- Model: Claude Sonnet (synthesis required)
+- Allowed MCP: clarity-financial (exclusive access), google-calendar
+- Denied MCP: gmail, todoist (pattern-detector handles those)
+- Allowed tools explicitly lists all three financial tool names — tighter than
+  just server-level access.
+- Memory: `none` — output must depend only on data, not remembered context.
+- Job: quantifies total demand on the user across meetings and financial pressure.
+  Writes `load-{date}.json` with `total_load_score` (0–100), `capacity_exceeded_days`,
+  `primary_load_driver`, and `financial_stress_present`.
+
+---
+
+**`insight-writer.md`**
+- Model: Claude Sonnet
+- Allowed tools: Read, Write only (no MCP at all)
+- Denied MCP: all four servers explicitly listed
+- Memory: `none` — synthesis should be deterministic from the data
+- Job: reads `patterns-{date}.json`, `load-{date}.json`, and `snapshot-{date}.json`
+  from cache only. Writes the weekly report in the Clarity voice. Never touches
+  raw data sources — by design, it is impossible for it to do so.
+- Voice rules non-negotiable: cite specific numbers, never say "productivity",
+  never suggest tools, never give generic advice, under 400 words.
+
+---
+
+**`conversation.md`**
+- Model: Claude Sonnet
+- Allowed tools: Read only (no Write — cannot mutate anything)
+- Denied MCP: all four servers explicitly listed
+- Memory: `user` — maintains continuity across sessions. Remembers prior
+  conversations so follow-up questions feel coherent ("Last week you noted
+  Thursdays were good — this week it was Wednesday, same pattern").
+- Job: answers follow-up questions about the report. Every answer must cite
+  data from the snapshot. Responses under 150 words — this is conversation,
+  not another report.
+
+---
+
+**The permission hierarchy across agents — tightens as you move through the pipeline:**
+
+```
+pattern-detector   calendar + email + tasks  (broad read, user memory)
+load-analyzer      financial + calendar       (narrow read, no memory)
+insight-writer     nothing (cache only)       (no MCP, no memory)
+conversation       nothing (cache only)       (read-only, user memory)
+```
+
+Raw data only reaches the first two agents. By the time insight-writer runs,
+everything has been reduced to derived signals. By the time conversation runs,
+everything has been further reduced to a < 400-word report.
 
 ---
 
@@ -799,9 +938,9 @@ built with FastMCP that exposes three tools:
 stress signal and demonstrate the depletion cascade pattern visible in the
 example report.
 
-**Dependency not yet met:** FastMCP must be installed (`pip install fastmcp`)
-and a `requirements.txt` does not yet exist. The server will fail to start
-until this is in place.
+**Dependencies:** `requirements.txt` exists at the project root with `fastmcp>=2.0.0`
+and supporting packages. Install with `pip install -r requirements.txt` from the
+project root before starting a Claude Code session that uses financial data.
 
 ---
 
@@ -827,11 +966,40 @@ Each agent only gets access to the MCP servers it needs (least privilege):
 
 insight-writer and conversation are fully sandboxed — they read only from
 `.clarity-cache/` and never touch raw data sources. Enforced via
-`allowed-mcp-servers` and `denied-mcp-servers` in subagent frontmatter
-(subagent `.md` files in `.claude/agents/` not yet created).
+`allowed-mcp-servers` and `denied-mcp-servers` in the subagent frontmatter
+files in `.claude/agents/` (all four now created — see the subagents section above).
 
-The orchestrator (not yet built) runs pattern-detector and load-analyzer
-in parallel, then passes both results to insight-writer.
+**`agents/conversation.py`** — now built. Entry point: `respond(user_message, conversation_history, user_id)`.
+
+Called by the FastAPI backend when a user sends a message in the conversation UI after reading their report. Loads all four cache files (snapshot, patterns, load, report) into the system prompt as context, then calls Claude Sonnet with the full conversation history. Returns `(response_text, updated_history)` — the caller owns history persistence.
+
+Uses `AsyncAnthropic` so the event loop is not blocked while waiting for the API response. Conversation history is built immutably (new list each turn) — no shared state between requests. Logs only the first 50 characters of each message — no personal content in logs. Returns a clear error if no cache data is found rather than making an API call with empty context.
+
+---
+
+**`agents/orchestrator.py`** — now built. Entry point: `run_weekly_pipeline(user_id, week_start)`.
+
+Pipeline steps:
+1. Loads current snapshot from `.clarity-cache/snapshot-*.json`
+2. Loads up to 3 prior snapshots for cross-week context
+3. Calls `_run_parallel_analysis()` — runs pattern-detector and load-analyzer
+   simultaneously using `asyncio.create_task()` + `asyncio.gather()`
+4. Writes `patterns-{date}.json` and `load-{date}.json` to cache
+5. Calls insight-writer with combined context (snapshot + patterns + load)
+6. Writes `report-{date}.json` to cache
+7. Evaluates which patterns warrant alerts (HIGH severity only)
+8. Returns pipeline result dict
+
+**Why parallel matters:** Both agents make Anthropic API calls that take several
+seconds. `create_task` schedules both before awaiting either — both HTTP requests
+are in flight simultaneously. `gather` waits for the slower of the two. Total time
+is `max(pattern_time, load_time)` rather than `pattern_time + load_time`.
+With pattern-detector typically taking 8–12s and load-analyzer 4–7s, parallel
+execution saves roughly 6 seconds on every pipeline run.
+
+**CLI usage:** `python -m agents.orchestrator` or
+`python -m agents.orchestrator 2026-04-07` to analyse a specific week.
+Uses `CLARITY_DEV_USER_ID` from the environment for local runs.
 
 ---
 
@@ -880,63 +1048,72 @@ Here is what happens when you type `/analyze-week`:
 
 1. Claude Code receives the command and loads the `analyze-week` skill playbook
 2. Claude calculates the most recent completed week (last Monday to Sunday)
-3. Claude calls `mcp__google-calendar__list_events` — the MCP server connects
-   to Google Calendar and returns your events for the week as raw JSON
-4. `audit-logger.sh` fires (async, background) — records this MCP access
-5. The raw calendar JSON is now in Claude's context — `ingest-calendar`
+3. Claude calls `mcp__google-calendar__list_events`
+4. `mcp-access-guard.sh` fires (PreToolUse) — checks tool name for mutating
+   verbs, finds none, logs `mcp_access_approved`, exits 0
+5. Google Calendar MCP server returns your events for the week as raw JSON
+6. `audit-logger.sh` fires (PostToolUse async) — logs `mcp_data_access`
+7. The raw calendar JSON is now in Claude's context — `ingest-calendar`
    fires automatically (it is an auto skill triggered by this data)
-6. ingest-calendar computes signals from the events, writes
+8. ingest-calendar computes signals from the events, writes
    `.clarity-cache/calendar-2026-03-30.json`, discards all raw event data
-7. Claude calls `mcp__gmail__list_messages` — gets email metadata
-8. `audit-logger.sh` fires again
-9. `ingest-email` fires automatically
-10. Email signals written to `.clarity-cache/email-2026-03-30.json`
+9. Claude calls `mcp__gmail__list_messages`
+10. `mcp-access-guard.sh` fires — approves, `audit-logger.sh` fires async
+11. `ingest-email` fires automatically
+12. Email signals written to `.clarity-cache/email-2026-03-30.json`
 11. Claude calls `mcp__todoist__get_tasks` — gets task data
-12. `audit-logger.sh` fires again
-13. Claude runs the `ingest-tasks` playbook (manual skill, but being
-    coordinated by `analyze-week`)
-14. Task signals written to `.clarity-cache/tasks-2026-03-30.json`
-15. Claude reads all three cache files and merges them into
+12. `mcp-access-guard.sh` fires (PreToolUse) — approves, logs `mcp_access_approved`
+13. `audit-logger.sh` fires (PostToolUse async) — logs `mcp_data_access`
+14. Claude runs the `ingest-tasks` playbook (coordinated by `analyze-week`)
+15. Task signals written to `.clarity-cache/tasks-2026-03-30.json`
+16. Claude calls `mcp__clarity-financial__get_weekly_spending`,
+    `get_monthly_average`, and `get_stress_signals` — financial MCP server
+    runs locally via stdio, data never leaves the machine
+17. `mcp-access-guard.sh` fires for each call — approves all three (read-only verbs)
+18. `audit-logger.sh` fires for each call (async)
+19. `ingest-financial` fires automatically (auto skill)
+20. Financial signals written to `.clarity-cache/finance-2026-03-30.json`
+21. Claude reads all four cache files and merges them into
     `.clarity-cache/snapshot-2026-03-30.json`
-16. Claude prints a summary: "14 meetings, 11 tasks, 340 emails. Snapshot ready."
-17. Claude's response finishes
-18. The Stop hook fires: `quality-gate.sh` checks if this was a report
+22. Claude prints a summary: "14 meetings, 11 tasks, 340 emails, £431 spend. Snapshot ready."
+23. Claude's response finishes
+24. The Stop hook fires: `quality-gate.sh` checks if this was a report
     (it is not — it is just a summary) and approves immediately
-19. The HTTP POST fires async to the backend
+25. The HTTP POST fires async to the backend
 
 Then you type `/detect-patterns`:
 
-20. Claude Code loads the detect-patterns skill
-21. The harness spawns a subagent (a separate Claude Haiku process)
-22. `agent-timer.sh` fires, recording the subagent start time
-23. The subagent reads the last 4 snapshot files to build cross-week context
-24. The subagent analyses signals: finds a Depletion Cascade (3 days with 3+
+26. Claude Code loads the detect-patterns skill
+27. The harness spawns a subagent (a separate Claude Haiku process)
+28. `agent-timer.sh` fires, recording the subagent start time
+29. The subagent reads the last 4 snapshot files to build cross-week context
+30. The subagent analyses signals: finds a Depletion Cascade (3 days with 3+
     meetings and zero evening task completions), an Avoidance Loop (personal
     category moved 3 times this week, 2nd consecutive week)
-25. Subagent writes `.clarity-cache/patterns-2026-03-30.json` with severity
+31. Subagent writes `.clarity-cache/patterns-2026-03-30.json` with severity
     ratings and evidence
-26. Subagent finishes
-27. `agent-timer.sh` fires again, recording the subagent stop time
-28. The main session receives the subagent's result
+32. Subagent finishes
+33. `agent-timer.sh` fires again, recording the subagent stop time
+34. The main session receives the subagent's result
 
 Then you type `/generate-report`:
 
-29. Claude loads the generate-report skill
-30. Claude reads `report-template.md` (voice structure) and
+35. Claude loads the generate-report skill
+36. Claude reads `report-template.md` (voice structure) and
     `example-output.md` (target tone) from the skill's directory
-31. Claude reads `patterns-2026-03-30.json` and `snapshot-2026-03-30.json`
-32. Claude writes the report: opens with the numbers, one paragraph per
+37. Claude reads `patterns-2026-03-30.json` and `snapshot-2026-03-30.json`
+38. Claude writes the report: opens with the numbers, one paragraph per
     pattern connecting data to feeling without telling you how to feel,
     one connecting sentence, one honest final observation
-33. Report written to `.clarity-cache/report-2026-03-30.md` and
+39. Report written to `.clarity-cache/report-2026-03-30.md` and
     `.clarity-cache/report-2026-03-30.json`
-34. Claude finishes
-35. Stop hook fires: `quality-gate.sh` detects this looks like a report
-36. Checks: under 400 words ✓, cites numbers ✓, no generic advice ✓
-37. Quality gate approves (exits 0), retry counter file deleted
-38. HTTP POST fires to backend (with `X-Clarity-Secret` header)
-39. Backend receives it, validates the secret, stores the report in Supabase
-40. Frontend displays the report in your browser
+40. Claude finishes
+41. Stop hook fires: `quality-gate.sh` detects this looks like a report
+42. Checks: under 400 words ✓, cites numbers ✓, no generic advice ✓
+43. Quality gate approves (exits 0), retry counter file deleted
+44. HTTP POST fires to backend (with `X-Clarity-Secret` header)
+45. Backend receives it, validates the secret, stores the report in Supabase
+46. Frontend displays the report in your browser
 
 ---
 
@@ -978,33 +1155,43 @@ These must exist before the system can run:
 | `CLARITY_HOOK_SECRET` | Shared secret between Claude Code and the FastAPI backend, used to authenticate HTTP hook POSTs |
 | `ANTHROPIC_API_KEY` | API key for the Claude AI models |
 | `SUPABASE_URL` | The URL of the Supabase project |
-| `SUPABASE_SERVICE_KEY` | Backend-only Supabase key with full database access |
-| `SUPABASE_ANON_KEY` | Frontend-safe Supabase key (limited access) |
+| `SUPABASE_ANON_KEY` | Supabase key used by the backend client |
+| `GOOGLE_CLIENT_ID` | Google OAuth app client ID (for Calendar + Gmail) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth app client secret |
+| `TODOIST_API_TOKEN` | Todoist static API token (no OAuth refresh needed) |
+| `CLARITY_DEV_USER_ID` | Your local Supabase user UUID — set after first `supabase start` and user row creation. Used by session-start hook to check token health. |
 
-OAuth tokens for Google Calendar, Gmail, and Todoist are stored in
-Supabase Vault after the user connects their accounts — they are never
-environment variables.
+All variables have placeholder values in `.env` (gitignored). Copy and fill in
+real values before running. OAuth access tokens for Google and Todoist are
+stored in the `user_oauth_tokens` database table after first authorization —
+they are never environment variables.
 
 ---
 
 ## How to Start the Development Environment
 
 ```bash
+# First time only — install dependencies
+pip install -r requirements.txt          # root deps (financial MCP server)
+pip install -r backend/requirements.txt  # backend deps (FastAPI, pytest, etc.)
+
+# Apply database migrations
+npx supabase db push
+
 # 1. Start the Supabase local database
 npx supabase start
 
 # 2. Start the FastAPI backend
-cd backend
-uvicorn main:app --reload
+cd backend && uvicorn main:app --reload
 
-# 3. Start the Next.js frontend
-cd frontend
-npm run dev
+# 3. Start the Next.js frontend (once built)
+cd frontend && npm run dev
 
 # 4. Run backend tests
-cd backend
-pytest
+cd backend && pytest
 ```
 
-When you open a Claude Code session, `session-start.sh` will automatically
-check that steps 1 and 2 are running and tell you if they are not.
+When you open a Claude Code session, `session-start.sh` automatically checks
+that steps 1 and 2 are running and tells you if they are not. The financial
+MCP server (`clarity-financial`) is started automatically by Claude Code when
+the session begins — you do not start it manually.

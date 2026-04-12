@@ -1,0 +1,80 @@
+{
+  "week_start": "2026-04-07",
+  "patterns_detected": [
+    {
+      "type": "depletion_cascade",
+      "severity": "LOW",
+      "evidence": [
+        "Mon had 5 meetings (back-to-back likely given 6 B2B count across week) with zero task completions that day",
+        "Wed had 4 meetings including a 7pm boundary violation, with zero task completions that day",
+        "Tue also recorded zero task completions despite lighter meeting load, suggesting next-day avoidance following Mon overload",
+        "Overall completion rate is only 18% (2 of 11 tasks) across the week",
+        "Only 1 free evening across the entire week, leaving no recovery space between high-meeting days"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "avoidance_loop",
+      "severity": "LOW",
+      "evidence": [
+        "Personal tasks: 3 total, 0 completed, moved 4 times \u2014 move count exceeds task count, indicating repeated deferral",
+        "Financial tasks: 2 total, 0 completed, moved 3 times \u2014 no progress made despite multiple reschedules",
+        "Communication tasks: 2 total, 1 completed, moved 2 times \u2014 partial avoidance",
+        "Most avoided category flagged explicitly as 'personal' in snapshot data",
+        "11 unanswered email threads and 94 unread emails reinforce a broader deferral pattern"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "boundary_erosion",
+      "severity": "LOW",
+      "evidence": [
+        "Mon 8am meeting recorded as boundary violation \u2014 before standard working hours",
+        "Wed 7pm meeting recorded as boundary violation \u2014 after standard working hours",
+        "4 late-night email sends across the week indicating work activity outside core hours",
+        "Only 1 free evening out of 5 weekday evenings, suggesting evenings are routinely consumed by work",
+        "14 total meeting hours with 6 back-to-back blocks compressing daylight hours and pushing work into off-hours"
+      ],
+      "days_affected": [
+        "Mon",
+        "Wed"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "social_withdrawal",
+      "severity": "LOW",
+      "evidence": [
+        "Personal communication tasks: 0 of 3 personal tasks completed, with 4 deferrals \u2014 highest avoidance rate of any category",
+        "11 unanswered email threads suggest personal and social correspondence is being deprioritised",
+        "94 unread emails indicate inbox is not being actively managed, likely suppressing personal reach-outs",
+        "High food delivery spend ($110) relative to dining out ($45) may indicate reduced social eating behaviour"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "medium"
+}

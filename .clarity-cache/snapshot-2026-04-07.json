@@ -1,0 +1,37 @@
+{
+  "week_start": "2026-04-07",
+  "total_meeting_hours": 14,
+  "meetings_per_day": {"Mon": 5, "Tue": 3, "Wed": 4, "Thu": 1, "Fri": 1},
+  "back_to_back_count": 6,
+  "free_evening_count": 1,
+  "longest_focus_block_hours": 1.5,
+  "overload_days": ["Mon", "Wed"],
+  "boundary_violations": ["Mon 8am meeting", "Wed 7pm meeting"],
+  "total_emails_received": 147,
+  "unread_count": 94,
+  "late_night_sends": 4,
+  "unanswered_threads": 11,
+  "total_tasks": 11,
+  "completed": 2,
+  "completion_rate": 0.18,
+  "tasks_by_category": {
+    "financial": {"total": 2, "completed": 0, "moved": 3},
+    "personal": {"total": 3, "completed": 0, "moved": 4},
+    "communication": {"total": 2, "completed": 1, "moved": 2},
+    "work": {"total": 4, "completed": 1, "moved": 1}
+  },
+  "most_avoided_category": "personal",
+  "zero_completion_days": ["Mon", "Tue", "Wed"],
+  "total_spend": 340.57,
+  "spend_vs_budget_pct": 58.3,
+  "high_spend_categories": ["food_delivery"],
+  "by_category": {
+    "food_delivery": 110.00,
+    "groceries": 67.20,
+    "dining_out": 45.00,
+    "transport": 8.40,
+    "subscriptions": 15.99,
+    "shopping": 67.99,
+    "fitness": 49.99
+  }
+}
