@@ -19,10 +19,14 @@ HAS_REPORT=$(echo "$INPUT" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 msg = data.get('last_assistant_message', '')
-# Report present if it has numbers and is substantial
-has_numbers = any(c.isdigit() for c in msg)
-is_long = len(msg) > 200
-print('yes' if (has_numbers and is_long) else 'no')
+# Only treat as a Clarity weekly report if it contains report-specific markers
+is_report = (
+    'report_markdown' in msg
+    or 'root_cause' in msg
+    or 'Root cause:' in msg
+    or '**Root cause**' in msg
+)
+print('yes' if is_report else 'no')
 " 2>/dev/null || echo "no")
 
 # If no report was generated this turn, approve immediately
@@ -49,8 +53,8 @@ print(data.get('last_assistant_message', ''))
 " 2>/dev/null)
 
 WORD_COUNT=$(echo "$REPORT_TEXT" | wc -w | tr -d ' ')
-HAS_NUMBERS=$(echo "$REPORT_TEXT" | grep -c '[0-9]' || echo "0")
-HAS_GENERIC=$(echo "$REPORT_TEXT" | grep -ic 'try to\|consider\|you should\|make sure\|productivity' || echo "0")
+HAS_NUMBERS=$(echo "$REPORT_TEXT" | grep -c '[0-9]'; true)
+HAS_GENERIC=$(echo "$REPORT_TEXT" | grep -ic 'try to\|consider\|you should\|make sure\|productivity'; true)
 
 FAILED=0
 REASON=""
@@ -73,8 +77,8 @@ fi
 if [ "$FAILED" -eq 1 ]; then
   # Increment retry count
   echo $((RETRY_COUNT + 1)) > "$RETRY_FILE"
-  echo "Quality check failed (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES): $REASON"
-  echo "Please revise the report to fix this issue."
+  echo "Quality check failed (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES): $REASON" >&2
+  echo "Please revise the report to fix this issue." >&2
   exit 2
 fi
 

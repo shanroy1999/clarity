@@ -1,6 +1,6 @@
 {
   "week_start": "2026-04-07",
-  "total_load_score": 88,
+  "total_load_score": 89,
   "capacity_exceeded_days": [
     "Mon",
     "Tue",
@@ -11,9 +11,9 @@
   "load_by_day": {
     "Mon": 95,
     "Tue": 72,
-    "Wed": 90,
+    "Wed": 88,
     "Thu": 38,
     "Fri": 35
   },
-  "summary": "A severely front-loaded week where simultaneous meeting overload, near-zero task completion across three consecutive days, and spending 58% over budget converged to push total demand well beyond sustainable capacity."
+  "summary": "A severely front-loaded week with meeting overload, near-zero task execution through Wednesday, and discretionary spending running 58% over budget \u2014 all three load drivers are active simultaneously."
 }

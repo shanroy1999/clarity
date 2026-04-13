@@ -5,11 +5,11 @@
       "type": "depletion_cascade",
       "severity": "LOW",
       "evidence": [
-        "Mon had 5 meetings (back-to-back likely given 6 B2B count across week) with zero task completions that day",
-        "Wed had 4 meetings including a 7pm boundary violation, with zero task completions that day",
-        "Tue also recorded zero task completions despite lighter meeting load, suggesting next-day avoidance following Mon overload",
-        "Overall completion rate is only 18% (2 of 11 tasks) across the week",
-        "Only 1 free evening across the entire week, leaving no recovery space between high-meeting days"
+        "Monday had 5 meetings with back-to-back sessions contributing to 6 total B2B across the week, flagged as an overload day",
+        "Wednesday had 4 meetings including a 7pm boundary violation, also flagged as an overload day",
+        "Zero task completions recorded on Mon, Tue, and Wed \u2014 the three heaviest meeting days",
+        "Overall task completion rate is just 18% (2 of 11 tasks), with the collapse concentrated in the front half of the week",
+        "Only 1 free evening across the entire week, limiting recovery windows"
       ],
       "days_affected": [
         "Mon",
@@ -23,46 +23,11 @@
       "type": "avoidance_loop",
       "severity": "LOW",
       "evidence": [
-        "Personal tasks: 3 total, 0 completed, moved 4 times \u2014 move count exceeds task count, indicating repeated deferral",
-        "Financial tasks: 2 total, 0 completed, moved 3 times \u2014 no progress made despite multiple reschedules",
-        "Communication tasks: 2 total, 1 completed, moved 2 times \u2014 partial avoidance",
-        "Most avoided category flagged explicitly as 'personal' in snapshot data",
-        "11 unanswered email threads and 94 unread emails reinforce a broader deferral pattern"
-      ],
-      "days_affected": [
-        "Mon",
-        "Tue",
-        "Wed",
-        "Thu"
-      ],
-      "historical_frequency": 1,
-      "weeks_consecutive": 1
-    },
-    {
-      "type": "boundary_erosion",
-      "severity": "LOW",
-      "evidence": [
-        "Mon 8am meeting recorded as boundary violation \u2014 before standard working hours",
-        "Wed 7pm meeting recorded as boundary violation \u2014 after standard working hours",
-        "4 late-night email sends across the week indicating work activity outside core hours",
-        "Only 1 free evening out of 5 weekday evenings, suggesting evenings are routinely consumed by work",
-        "14 total meeting hours with 6 back-to-back blocks compressing daylight hours and pushing work into off-hours"
-      ],
-      "days_affected": [
-        "Mon",
-        "Wed"
-      ],
-      "historical_frequency": 1,
-      "weeks_consecutive": 1
-    },
-    {
-      "type": "social_withdrawal",
-      "severity": "LOW",
-      "evidence": [
-        "Personal communication tasks: 0 of 3 personal tasks completed, with 4 deferrals \u2014 highest avoidance rate of any category",
-        "11 unanswered email threads suggest personal and social correspondence is being deprioritised",
-        "94 unread emails indicate inbox is not being actively managed, likely suppressing personal reach-outs",
-        "High food delivery spend ($110) relative to dining out ($45) may indicate reduced social eating behaviour"
+        "Personal tasks: 3 total, 0 completed, moved 4 times \u2014 more moves than tasks exist, indicating repeated deferral",
+        "Financial tasks: 2 total, 0 completed, moved 3 times \u2014 no financial task was completed despite multiple reschedules",
+        "Communication tasks: 2 total, 1 completed, moved 2 times \u2014 partial engagement but still deferred",
+        "Personal category flagged explicitly as most_avoided_category",
+        "11 unanswered email threads and 94 unread emails reinforce active avoidance of incoming demands"
       ],
       "days_affected": [
         "Mon",
@@ -73,8 +38,24 @@
       ],
       "historical_frequency": 1,
       "weeks_consecutive": 1
+    },
+    {
+      "type": "boundary_erosion",
+      "severity": "LOW",
+      "evidence": [
+        "Mon 8am meeting recorded as a boundary violation \u2014 start-of-day encroachment",
+        "Wed 7pm meeting recorded as a boundary violation \u2014 end-of-day encroachment",
+        "4 late-night email sends across the week, indicating work extending well beyond business hours",
+        "Only 1 free evening across 5 days, meaning boundaries were compressed on at least 4 evenings"
+      ],
+      "days_affected": [
+        "Mon",
+        "Wed"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
     }
   ],
   "no_patterns_detected": false,
-  "analysis_confidence": "medium"
+  "analysis_confidence": "low"
 }

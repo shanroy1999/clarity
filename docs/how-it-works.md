@@ -171,16 +171,32 @@ clarity/
 │   ├── main.py        FastAPI entry point
 │   ├── requirements.txt  Backend Python dependencies
 │   ├── migrations/    SQL migration files (run with npx supabase db push)
+│   │   ├── 001_initial_schema.sql   Core tables (users, snapshots, reports, etc.)
+│   │   └── 002_oauth_tokens.sql     OAuth token storage table
 │   ├── mcp_servers/   The financial stdio MCP server
 │   └── src/
 │       ├── db/        Database client (import only from here)
 │       ├── auth/      OAuth token refresh logic
 │       └── routes/    FastAPI route files (one per domain)
-├── agents/            The AI agent code (Python orchestration, not yet built)
+├── agents/            The AI agent orchestration code
+│   ├── orchestrator.py   Full weekly pipeline entry point
+│   └── conversation.py   Follow-up question handler
+├── scripts/           Utility scripts and alert dispatcher
+│   ├── send_alert.py     Proactive alert dispatcher (webhook / ntfy.sh / file fallback)
+│   └── run-weekly-report.sh  Shell wrapper for the cloud scheduled task
 ├── data/              Local test data (transactions.csv)
 ├── docs/              Architecture documents and database schema
+│   ├── architecture.md
+│   ├── schema.md
+│   ├── mcp-access-control.md   Agent-level MCP access matrix
+│   └── how-it-works.md         This file
+├── .github/
+│   └── workflows/
+│       └── claude-review.yml   Automated PR review via Claude Code
 ├── requirements.txt   Root-level deps for MCP server only (fastmcp, structlog, etc.)
 └── .claude/           Configuration for Claude Code (the AI coding assistant)
+    ├── settings.json       Master hook and MCP server config
+    ├── settings.local.json Local permission overrides (gitignored)
     ├── skills/        Playbooks for specific tasks Claude can perform
     ├── hooks/         Shell scripts that run automatically at key moments
     ├── rules/         Coding standards Claude must follow
@@ -189,12 +205,13 @@ clarity/
 
 **Two `requirements.txt` files — why:**
 - `requirements.txt` at the project root contains only the dependencies needed
-  to run the financial MCP server (`fastmcp`, `python-dotenv`, `supabase`,
-  `httpx`, `structlog`). This is installed in the project root environment
-  because the MCP server is launched from the root by Claude Code.
-- `backend/requirements.txt` contains everything the FastAPI server needs,
-  including the above plus `fastapi`, `uvicorn`, `pydantic`, `pytest`, and
-  `pytest-asyncio`. Installed separately in the backend environment.
+  to run the financial MCP server: `fastmcp>=2.0.0`, `python-dotenv`, `supabase`,
+  `httpx`, `structlog`. Installed in the project root environment because the MCP
+  server is launched from the root by Claude Code.
+- `backend/requirements.txt` contains everything the FastAPI server needs:
+  `fastapi`, `uvicorn[standard]`, `pydantic`, `supabase`, `python-dotenv`,
+  `structlog`, `httpx`, `fastmcp`, `pytest`, `pytest-asyncio`. Installed
+  separately in the backend environment.
 
 ---
 
@@ -268,6 +285,22 @@ bookend every MCP call — approved at entry, confirmed at exit.
 
 **SubagentStart / SubagentStop** — when Claude spawns a subagent (a separate
 AI process for heavy work), `agent-timer.sh` records the timing in the audit log.
+
+---
+
+### .claude/settings.local.json — Local Permission Overrides
+
+A gitignored counterpart to `settings.json`. Currently contains one entry:
+
+```json
+{"permissions": {"allow": ["WebFetch(domain:docs.anthropic.com)"]}}
+```
+
+This allows Claude Code to fetch pages from `docs.anthropic.com` without
+an interactive permission prompt in local sessions — useful when researching
+Claude Code features. Because it is gitignored, it never affects other
+developers or the remote cloud environment. Settings in `settings.local.json`
+are merged with `settings.json` and take precedence for the local machine only.
 
 ---
 
@@ -401,10 +434,12 @@ The temp file approach avoids all string escaping entirely.
 **What it does:**
 1. Reads a retry counter from `.clarity-cache/.quality-retry-count`
    (starts at 0 if the file does not exist)
-2. Checks if the response looks like a Clarity report (longer than 200
-   characters and contains numbers — a quick heuristic)
-3. If it does not look like a report, approves immediately (removes the
-   counter file and exits 0)
+2. Checks if the response is a Clarity weekly report by looking for
+   report-specific markers in the text: `report_markdown`, `root_cause`,
+   `Root cause:`, or `**Root cause**`. Any of these means it is a report.
+3. If no report marker is found, approves immediately (removes the counter
+   file and exits 0) — this prevents the hook from firing on coding help,
+   documentation updates, or any other non-report responses
 4. If the retry counter has reached 2, gives up: writes a "degraded" quality
    flag to `.clarity-cache/.quality-flag.json` so the backend knows the report
    passed under duress, then exits 0 to stop the loop
@@ -413,9 +448,10 @@ The temp file approach avoids all string escaping entirely.
    - Does it cite fewer than 2 numbers? (Not data-driven enough)
    - Does it contain any of these forbidden phrases: "try to", "you should",
      "consider", "make sure", or "productivity"? Any of these triggers a fail.
-6. If any check fails, increments the retry counter, prints the reason,
-   and exits 2 — which blocks Claude's response from being shown and
-   forces it to regenerate
+6. If any check fails, increments the retry counter, writes the reason to
+   **stderr**, and exits 2 — which blocks Claude's response and forces a
+   regeneration. Writing to stderr is required: the Claude Code hook framework
+   reads blocking reasons from stderr only; stdout is ignored for exit-2 blocks.
 7. If all checks pass, deletes the counter file and the quality flag file,
    and exits 0
 
@@ -429,6 +465,17 @@ This was replaced with shell checks because: it costs money (every report
 review = another AI inference call), it is slower, and the three quality
 rules are specific enough to be checked mechanically. You do not need AI
 to count words or grep for "you should".
+
+**Known bugs fixed:**
+- `grep -c` exits with code 1 when it finds zero matches, even though it
+  still prints `0` to stdout. Using `grep -c ... || echo "0"` caused both
+  the printed `0` and the fallback `0` to be captured, producing `"0\n0"` —
+  a value that bash's `[ -gt ]` cannot parse as an integer. Fixed by using
+  `grep -c ...; true` instead, which always exits 0 and cleanly captures
+  the count.
+- The original `HAS_REPORT` heuristic ("long response + has a digit") was
+  too broad and triggered on coding help responses. Replaced with explicit
+  report marker detection.
 
 ---
 
@@ -485,6 +532,33 @@ how code in this project must be written.
 - Agents must not exceed 300 lines — keeps them readable by other AI agents
 - Always include error handling with specific fallback behaviour
 - Log agent decisions with structlog at INFO level
+
+**Note on "Agent SDK" vs direct Anthropic API:** The `agents.md` rule says
+"use the Agent SDK", but `agents/orchestrator.py` currently uses the Anthropic
+Python client directly (`AsyncAnthropic`). This is intentional and not a
+violation. Here is the distinction:
+
+- **Direct Anthropic API** (`pip install anthropic`): You send a prompt, get
+  text back. You own the tool loop — if you want Claude to read a file or run
+  a command, you implement that yourself. Orchestrator's three subagents
+  (`pattern-detector`, `load-analyzer`, `insight-writer`) are pure
+  text-in / JSON-out — they receive pre-loaded data and return structured
+  analysis. No file access or shell commands needed. The direct API is the
+  right fit.
+
+- **Claude Code Agent SDK** (`pip install claude-agent-sdk`): Gives Claude
+  Code as a library. Built-in tools — `Read`, `Write`, `Edit`, `Bash`, `Grep`,
+  `WebSearch` — let Claude autonomously act on files and systems. Also adds
+  resumable sessions (context preserved across calls), declarative subagent
+  spawning, in-process hook callbacks, and MCP server attachment. The overhead
+  is worth it when an agent needs to autonomously navigate the filesystem or
+  run commands.
+
+The Agent SDK would be the right choice for: the conversation agent (so it can
+autonomously read cache files when answering follow-up questions), the
+`analyze-week` skill (so it can navigate MCP responses and write cache files
+without pre-loaded data), or any future agent that needs to act rather than
+just analyse.
 
 ---
 
@@ -820,6 +894,65 @@ everything has been further reduced to a < 400-word report.
 
 ---
 
+### Checkpointing — Automatic File State Recovery
+
+**What it is:** Claude Code silently saves a snapshot of your file state before
+every file edit it makes. Every user prompt in an interactive session creates a
+new checkpoint. This is entirely automatic — there is no command to run and
+nothing to configure.
+
+**What gets saved:**
+- The state of every file Claude touched via its `Write`, `Edit`, or
+  `NotebookEdit` tools at the moment before the change
+- Checkpoints are session-scoped and persist for 30 days (configurable)
+- They are stored locally by Claude Code — the exact path is not exposed,
+  but they are separate from `.clarity-cache/`
+
+**What is NOT tracked:**
+- Changes made by shell commands Claude runs via `Bash` — for example, if the
+  orchestrator Python script writes a new cache file, that write happens inside
+  Python, not through Claude's file tools, so it is not checkpointed
+- Changes you make yourself in an editor outside Claude Code
+- `.clarity-cache/` files written by the pipeline (written by Python, not by
+  Claude's tools directly)
+
+**How to restore:**
+In an interactive session, press `Esc` + `Esc` or type `/rewind`. A scrollable
+list of your prompts appears — each one is a restore point. You pick one and
+choose:
+- **Restore code and conversation** — reverts both files and chat history to
+  that point. Use this when Claude went in the wrong direction entirely.
+- **Restore code** — reverts file changes only, keeps the conversation. Use
+  this when you want to try a different implementation of the same approach.
+- **Restore conversation** — rewinds the chat while keeping current code. Rare.
+- **Summarize from here** — compresses the conversation from that point forward
+  into a summary without touching files on disk. Useful when context is getting
+  long.
+
+**In the Agent SDK (programmatic use):**
+Enable checkpointing with `enable_file_checkpointing=True`. Each user message
+in the response stream carries a UUID that acts as a checkpoint identifier.
+Restore with `await client.rewind_files(checkpoint_id)`.
+
+**Checkpointing vs re-running the pipeline:**
+
+These solve different problems:
+
+| Situation | Right tool |
+|---|---|
+| Claude edited `orchestrator.py` incorrectly and the fix made things worse | `/rewind` — restore the file to before the bad edit |
+| The weekly pipeline failed because the API key expired | Re-run — `python3 agents/orchestrator.py`. No file state to restore. |
+| Claude wrote a bad cache file via its Write tool | `/rewind` and select "Restore code" |
+| `pattern-detector` returned malformed JSON and crashed | Re-run — the crash is in runtime data, not in a file Claude edited |
+| Claude refactored a hook script and broke it across 3 files | `/rewind` — one restore point rolls back all three files at once |
+| The snapshot file is stale or empty | Re-run `/analyze-week` — it fetches fresh data |
+
+The rule of thumb: if Claude **edited a file** and that edit was the problem,
+`/rewind`. If the pipeline **failed at runtime** due to data, network, or
+configuration, re-run.
+
+---
+
 ## Part 2: The Documents (docs/)
 
 ---
@@ -890,6 +1023,25 @@ triggered in practice (`expires_at` is null, treated as always fresh).
 backend must include an `X-Clarity-Secret` header. The backend validates
 this against an environment variable `CLARITY_HOOK_SECRET`. This prevents
 any other process on the machine from spoofing hook events.
+
+---
+
+### docs/mcp-access-control.md — Agent MCP Access Matrix
+
+A concise reference showing which MCP servers each agent can access.
+Enforced via `allowed-mcp-servers` and `denied-mcp-servers` in the
+subagent frontmatter files. The matrix:
+
+| Agent | google-calendar | gmail | todoist | clarity-financial |
+|---|---|---|---|---|
+| pattern-detector | read | read | read | — |
+| load-analyzer | read | — | — | read |
+| insight-writer | — | — | — | — |
+| conversation | — | — | — | — |
+
+The design rationale: financial data flows to load-analyzer only. Insight-writer
+and conversation are fully sandboxed — they can only read from `.clarity-cache/`,
+making it structurally impossible for them to access raw personal data.
 
 ---
 
@@ -1031,7 +1183,9 @@ Pipeline steps:
    hallucinated report; better to fail loudly and clearly.
 7. Calls insight-writer with combined context (snapshot + patterns + load)
 8. Writes `report-{date}.json` to cache
-9. Evaluates which patterns warrant alerts (HIGH severity only)
+9. **Alert dispatch** — if any pattern has severity HIGH, calls
+   `scripts.send_alert.dispatch_alerts(alert_patterns)`. Wrapped in a
+   try/except so an alert failure never blocks pipeline completion.
 10. Returns pipeline result dict
 
 **`_extract_json` helper:** LLMs sometimes wrap JSON output in markdown code fences
@@ -1066,6 +1220,63 @@ Uses `CLARITY_DEV_USER_ID` from the environment for local runs.
 
 ---
 
+### scripts/ — Utilities and Alert Dispatcher
+
+**`scripts/__init__.py`** — empty file that makes `scripts/` a Python package,
+allowing `from scripts.send_alert import dispatch_alerts` to work from
+`orchestrator.py`. Without it, Python does not treat the directory as importable.
+
+---
+
+**`scripts/send_alert.py`** — proactive alert dispatcher. Called by the
+orchestrator when HIGH severity patterns are detected.
+
+Three dispatch channels, tried in priority order:
+
+1. **`CLARITY_ALERT_WEBHOOK`** (env var) — POSTs a JSON payload to any webhook
+   URL. Works with Claude Code channels, ntfy.sh, Pushover, or the Clarity
+   FastAPI `/api/alerts` endpoint. Payload includes: `ts`, `message`,
+   `pattern_type`, `severity`, `source: "clarity"`.
+
+2. **`CLARITY_NTFY_TOPIC`** (env var) — sends a push notification via
+   [ntfy.sh](https://ntfy.sh), a free service for phone notifications.
+   Uses `Title: "Clarity — Pattern Detected"`, `Priority: high`,
+   and `Tags` set to the pattern type. No account required — just a topic name.
+
+3. **Fallback: `.clarity-cache/pending-alerts.json`** — if neither env var
+   is set, writes the alerts to a local file with `delivered: false`. The
+   frontend or a future background job can pick these up and display them.
+
+Each pattern type has a pre-written message template in `ALERT_MESSAGES`:
+- `depletion_cascade` — warns about evening risk from heavy meeting load
+- `avoidance_loop` — names the deferral count explicitly: "deferred {count} times"
+- `boundary_erosion` — flags 3+ consecutive days of after-hours work
+- `social_withdrawal` — flags that personal tasks have been untouched all week
+
+Alert failures are caught and logged — they never propagate up to fail the pipeline.
+
+**CLI usage:** `python3 scripts/send_alert.py '<pattern_json>'` — accepts a
+single pattern dict as a JSON string argument, useful for manual testing.
+
+---
+
+**`scripts/run-weekly-report.sh`** — shell wrapper designed to be called by the
+Claude Code cloud scheduled task (Sunday 9:30pm America/Chicago).
+
+What it does:
+1. `cd`s to the project root from the script's directory
+2. Activates `.venv` — assumes the project virtualenv is already set up
+3. Computes `WEEK_START` — the Monday of the week that just ended
+4. Runs `python3 agents/orchestrator.py "$WEEK_START"`
+5. Logs success or failure with a UTC timestamp
+6. Exits with the orchestrator's exit code (non-zero propagates to the
+   cloud task runner so the failure is visible in the run log)
+
+Uses `set -euo pipefail` — any unhandled error aborts the script immediately
+rather than silently continuing with bad state.
+
+---
+
 ## Part 4: The Local Cache (.clarity-cache/)
 
 This folder lives on your computer and is never committed to git or
@@ -1092,11 +1303,18 @@ during a session and rotated after 4 weeks.
 
 ## Part 5: The Audit Trail (.clarity-audit.jsonl)
 
-This file lives at the project root and is gitignored (never committed to git).
-Every tool call Claude makes during a session is appended to this file.
+This file lives at the project root and is explicitly gitignored in `.gitignore`
+— it is never committed to the repository. Every tool call Claude makes during
+a session is appended to this file.
 
 JSONL means "JSON Lines" — each line is a separate, complete JSON object.
 This format is designed for append-only logs that grow over time.
+
+**Note on mixed content:** Most lines are structured JSON written by
+`audit-logger.sh`. Lines written by `agent-timer.sh` are plain text
+(`[HH:MM:SS] Agent started: <id>`) — the same file receives both formats.
+The two are visually distinct and the plain-text lines can be filtered out
+with `grep "^{"` when processing programmatically.
 
 **You can read it to answer:** "Did the AI read my email this session?
 What exactly did it access? When?" The `user_facing: true` flag marks
@@ -1124,59 +1342,59 @@ Here is what happens when you type `/analyze-week`:
 10. `mcp-access-guard.sh` fires — approves, `audit-logger.sh` fires async
 11. `ingest-email` fires automatically
 12. Email signals written to `.clarity-cache/email-2026-03-30.json`
-11. Claude calls `mcp__todoist__get_tasks` — gets task data
-12. `mcp-access-guard.sh` fires (PreToolUse) — approves, logs `mcp_access_approved`
-13. `audit-logger.sh` fires (PostToolUse async) — logs `mcp_data_access`
-14. Claude runs the `ingest-tasks` playbook (coordinated by `analyze-week`)
-15. Task signals written to `.clarity-cache/tasks-2026-03-30.json`
-16. Claude calls `mcp__clarity-financial__get_weekly_spending`,
+13. Claude calls `mcp__todoist__get_tasks` — gets task data
+14. `mcp-access-guard.sh` fires (PreToolUse) — approves, logs `mcp_access_approved`
+15. `audit-logger.sh` fires (PostToolUse async) — logs `mcp_data_access`
+16. Claude runs the `ingest-tasks` playbook (coordinated by `analyze-week`)
+17. Task signals written to `.clarity-cache/tasks-2026-03-30.json`
+18. Claude calls `mcp__clarity-financial__get_weekly_spending`,
     `get_monthly_average`, and `get_stress_signals` — financial MCP server
     runs locally via stdio, data never leaves the machine
-17. `mcp-access-guard.sh` fires for each call — approves all three (read-only verbs)
-18. `audit-logger.sh` fires for each call (async)
-19. `ingest-financial` fires automatically (auto skill)
-20. Financial signals written to `.clarity-cache/finance-2026-03-30.json`
-21. Claude reads all four cache files and merges them into
+19. `mcp-access-guard.sh` fires for each call — approves all three (read-only verbs)
+20. `audit-logger.sh` fires for each call (async)
+21. `ingest-financial` fires automatically (auto skill)
+22. Financial signals written to `.clarity-cache/finance-2026-03-30.json`
+23. Claude reads all four cache files and merges them into
     `.clarity-cache/snapshot-2026-03-30.json`
-22. Claude prints a summary: "14 meetings, 11 tasks, 340 emails, £431 spend. Snapshot ready."
-23. Claude's response finishes
-24. The Stop hook fires: `quality-gate.sh` checks if this was a report
+24. Claude prints a summary: "14 meetings, 11 tasks, 340 emails, £431 spend. Snapshot ready."
+25. Claude's response finishes
+26. The Stop hook fires: `quality-gate.sh` checks if this was a report
     (it is not — it is just a summary) and approves immediately
-25. The HTTP POST fires async to the backend
+27. The HTTP POST fires async to the backend
 
 Then you type `/detect-patterns`:
 
-26. Claude Code loads the detect-patterns skill
-27. The harness spawns a subagent (a separate Claude Haiku process)
-28. `agent-timer.sh` fires, recording the subagent start time
-29. The subagent reads the last 4 snapshot files to build cross-week context
-30. The subagent analyses signals: finds a Depletion Cascade (3 days with 3+
+28. Claude Code loads the detect-patterns skill
+29. The harness spawns a subagent (a separate Claude Haiku process)
+30. `agent-timer.sh` fires, recording the subagent start time
+31. The subagent reads the last 4 snapshot files to build cross-week context
+32. The subagent analyses signals: finds a Depletion Cascade (3 days with 3+
     meetings and zero evening task completions), an Avoidance Loop (personal
     category moved 3 times this week, 2nd consecutive week)
-31. Subagent writes `.clarity-cache/patterns-2026-03-30.json` with severity
+33. Subagent writes `.clarity-cache/patterns-2026-03-30.json` with severity
     ratings and evidence
-32. Subagent finishes
-33. `agent-timer.sh` fires again, recording the subagent stop time
-34. The main session receives the subagent's result
+34. Subagent finishes
+35. `agent-timer.sh` fires again, recording the subagent stop time
+36. The main session receives the subagent's result
 
 Then you type `/generate-report`:
 
-35. Claude loads the generate-report skill
-36. Claude reads `report-template.md` (voice structure) and
+37. Claude loads the generate-report skill
+38. Claude reads `report-template.md` (voice structure) and
     `example-output.md` (target tone) from the skill's directory
-37. Claude reads `patterns-2026-03-30.json` and `snapshot-2026-03-30.json`
-38. Claude writes the report: opens with the numbers, one paragraph per
+39. Claude reads `patterns-2026-03-30.json` and `snapshot-2026-03-30.json`
+40. Claude writes the report: opens with the numbers, one paragraph per
     pattern connecting data to feeling without telling you how to feel,
     one connecting sentence, one honest final observation
-39. Report written to `.clarity-cache/report-2026-03-30.md` and
+41. Report written to `.clarity-cache/report-2026-03-30.md` and
     `.clarity-cache/report-2026-03-30.json`
-40. Claude finishes
-41. Stop hook fires: `quality-gate.sh` detects this looks like a report
-42. Checks: under 400 words ✓, cites numbers ✓, no generic advice ✓
-43. Quality gate approves (exits 0), retry counter file deleted
-44. HTTP POST fires to backend (with `X-Clarity-Secret` header)
-45. Backend receives it, validates the secret, stores the report in Supabase
-46. Frontend displays the report in your browser
+42. Claude finishes
+43. Stop hook fires: `quality-gate.sh` detects this looks like a report
+44. Checks: under 400 words ✓, cites numbers ✓, no generic advice ✓
+45. Quality gate approves (exits 0), retry counter file deleted
+46. HTTP POST fires to backend (with `X-Clarity-Secret` header)
+47. Backend receives it, validates the secret, stores the report in Supabase
+48. Frontend displays the report in your browser
 
 ---
 
@@ -1223,11 +1441,75 @@ These must exist before the system can run:
 | `GOOGLE_CLIENT_SECRET` | Google OAuth app client secret |
 | `TODOIST_API_TOKEN` | Todoist static API token (no OAuth refresh needed) |
 | `CLARITY_DEV_USER_ID` | Your local Supabase user UUID — set after first `supabase start` and user row creation. Used by session-start hook to check token health. |
+| `CLARITY_ALERT_WEBHOOK` | *(Optional)* Webhook URL for proactive alerts — any URL accepting a JSON POST. Set to a Claude Code channel, ntfy.sh, Pushover, or the backend `/api/alerts` endpoint. |
+| `CLARITY_NTFY_TOPIC` | *(Optional)* ntfy.sh topic name for free phone push notifications. Only used if `CLARITY_ALERT_WEBHOOK` is not set. |
 
-All variables have placeholder values in `.env` (gitignored). Copy and fill in
-real values before running. OAuth access tokens for Google and Todoist are
-stored in the `user_oauth_tokens` database table after first authorization —
-they are never environment variables.
+All required variables have placeholder values in `.env` (gitignored). The two
+alert variables are optional — if neither is set, HIGH severity alerts are written
+to `.clarity-cache/pending-alerts.json` as a fallback. OAuth access tokens for
+Google and Todoist are stored in the `user_oauth_tokens` database table after
+first authorization — they are never environment variables.
+
+---
+
+## Part 6: The GitHub Actions Workflow (.github/workflows/)
+
+### .github/workflows/claude-review.yml — Automated PR Review
+
+**What it is:** A GitHub Actions workflow that runs Claude Code on every pull
+request opened or updated against `main`. It posts a Clarity-specific code
+review as a PR comment automatically.
+
+**What it checks:**
+1. **Privacy violations** — raw email body or subject stored anywhere, task
+   titles stored (only category counts are allowed), calendar attendee names
+   stored, any PII written to the database or cache
+2. **Security issues** — hardcoded API keys, SQL injection in queries, missing
+   auth on FastAPI endpoints, HTTP hook endpoints without the `X-Clarity-Secret`
+   header validation
+3. **Architecture violations** — direct external API calls from `frontend/`,
+   agent files over 300 lines, missing type hints on Python functions, `any`
+   types in TypeScript, missing tests for new agent or backend logic
+
+**How it works step by step:**
+1. Checks out the repo with full history (`fetch-depth: 0`)
+2. Installs Claude Code globally: `npm install -g @anthropic-ai/claude-code`
+3. Computes the list of changed files: `git diff --name-only origin/main...HEAD`
+4. Runs Claude Code in non-interactive print mode with the review prompt
+5. Saves the output to `review-output.txt`
+6. Posts the contents of that file as a comment on the PR
+
+**The `claude -p` flag:** Puts Claude Code into **non-interactive print mode**.
+Without `-p`, the `claude` command starts an interactive REPL — it waits for
+keyboard input, renders a prompt bar, and never exits on its own. In a CI
+runner this would hang until the job times out. With `-p "..."`, the prompt
+is passed as a CLI argument, Claude executes once, and the process exits
+automatically. Output goes to stdout, so it can be piped or redirected.
+
+**The `--output-format text` flag:** Controls what Claude writes to stdout.
+Three options exist:
+- `text` — plain prose (what a human would read, markdown-compatible)
+- `json` — a structured JSON object with `result`, `cost`, and `session_id` fields
+- `stream-json` — a stream of JSON events, one per line, as Claude generates them
+
+`text` is the right choice here because the output goes directly into a GitHub
+PR comment body. `json` would post a raw JSON blob; `stream-json` would post
+dozens of partial-event lines that would need parsing.
+
+**The `2>&1 | tee review-output.txt` pattern:**
+- `2>&1` merges stderr into stdout so error messages are also captured
+- `tee` writes the combined output both to the Actions log (for real-time
+  viewing) and to `review-output.txt` (for the follow-up posting step)
+
+**Why `claude -p` instead of the Anthropic Python SDK:** The `claude` CLI
+brings the full Claude Code environment — it reads `CLAUDE.md`, respects
+`.claude/rules/`, and applies project-level context automatically. The
+raw Anthropic Python SDK would need those rules injected manually into
+every system prompt.
+
+**Permissions required:**
+- `contents: read` — to check out the code
+- `pull-requests: write` — to post the review comment
 
 ---
 
@@ -1258,3 +1540,14 @@ When you open a Claude Code session, `session-start.sh` automatically checks
 that steps 1 and 2 are running and tells you if they are not. The financial
 MCP server (`clarity-financial`) is started automatically by Claude Code when
 the session begins — you do not start it manually.
+
+**Cloud scheduled task:** A remote agent (`Clarity Weekly Pipeline`) is
+configured to run every Sunday at 9:30pm America/Chicago (2:30am UTC Monday)
+via the Anthropic cloud scheduler. It clones the repo, installs deps, fetches
+data via the Gmail and Google Calendar MCP connectors, runs the orchestrator,
+and prints the report. The trigger ID is `trig_01RchkmjVKBRDh1XL1bxLwRZ`.
+Manage it at: https://claude.ai/code/scheduled/trig_01RchkmjVKBRDh1XL1bxLwRZ
+
+The local shell equivalent — for running manually or from cron — is
+`scripts/run-weekly-report.sh`, which activates the virtualenv and calls
+`python3 agents/orchestrator.py` with the correct week start date.

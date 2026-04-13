@@ -1,0 +1,89 @@
+name: Claude Code PR Review
+
+on:
+    pull_request:
+        types: [opened, synchronize]
+        branches: [main]
+
+jobs:
+    claude-review:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install Claude Code
+              run: npm install -g @anthropic-ai/claude-code
+
+            - name: Run Clarity PR review
+              env:
+                  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  # Get changed files
+                  CHANGED=$(git diff --name-only origin/main...HEAD)
+                  echo "Changed files: $CHANGED"
+
+                  # Run Claude Code review focused on Clarity-specific concerns
+                  claude -p "
+                  You are reviewing a pull request for Clarity — an AI that reads
+                  users' calendar, email, task, and financial data.
+
+                  Review the following changed files for:
+
+                  1. PRIVACY VIOLATIONS
+                     - Raw email body or subject stored anywhere
+                     - Task titles stored (only categories allowed)
+                     - Calendar attendee names stored
+                     - Any PII written to database or cache files
+
+                  2. SECURITY ISSUES
+                     - API keys or secrets hardcoded
+                     - SQL injection risks in database queries
+                     - Missing authentication on FastAPI endpoints
+                     - HTTP hook endpoints without secret validation
+
+                  3. CLARITY ARCHITECTURE VIOLATIONS
+                     - Direct external API calls from frontend/
+                     - Agent files over 300 lines
+                     - Missing type hints on Python functions
+                     - any TypeScript types
+                     - Tests missing for new agent or backend logic
+
+                  Changed files in this PR:
+                  $CHANGED
+
+                  For each issue found, state:
+                  - File and line number
+                  - What the issue is
+                  - Why it matters for Clarity specifically
+                  - What the fix should be
+
+                  If no issues found, say so clearly.
+                  " --output-format text 2>&1 | tee review-output.txt
+
+            - name: Post review as PR comment
+              uses: actions/github-script@v7
+              if: always()
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const review = fs.readFileSync('review-output.txt', 'utf8');
+
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number,
+                        body: `## Clarity Claude Code Review\n\n${review}`
+                      });

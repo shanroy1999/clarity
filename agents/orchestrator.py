@@ -24,6 +24,12 @@ from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 import re
 
+# Ensure project root is in path when running as a script
+import sys
+from pathlib import Path
+if str(Path(__file__).parent.parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
 load_dotenv()
 log = structlog.get_logger()
 
@@ -333,49 +339,64 @@ async def run_weekly_pipeline(
     week_start: str | None = None,
 ) -> dict[str, Any]:
     """
-    Run the full Clarity weekly analysis pipeline.
-
-    Args:
-        user_id: Clarity user UUID
-        week_start: Monday date (YYYY-MM-DD). Defaults to current week.
-
-    Returns:
-        Pipeline result with report, patterns, and alert triggers.
+    Run the full Clarity weekly analysis pipeline with checkpointing.
+    Failed runs resume from the last successful checkpoint.
     """
     week_start = week_start or _current_week_start()
     log.info("pipeline_start", user_id=user_id, week_start=week_start)
 
+    # Validate API key
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key or api_key.startswith("your-"):
-        log.error("anthropic_api_key_missing_or_placeholder", error="API key missing or placeholder", error_type="ConfigurationError")
         return {
             "success": False,
-            "error": "ANTHROPIC_API_KEY is not set or is still a placeholder. Check your .env file.",
+            "error": "ANTHROPIC_API_KEY is not set. Add your key to .env",
             "week_start": week_start,
         }
 
     client = AsyncAnthropic(api_key=api_key)
 
-    # 1. Load current snapshot
-    snapshot = _read_cache("snapshot")
-    if not snapshot:
-        return {
-            "success": False,
-            "error": "No snapshot found. Run /analyze-week first.",
-            "week_start": week_start,
-        }
+    # Load or create checkpoint
+    from agents.checkpoint import Checkpoint
+    cp = Checkpoint(week_start)
+    state = cp.load()
+    resume_stage = state["stage"] if state else -1
 
-    # 2. Load prior snapshots for cross-week pattern analysis
-    all_snapshots = sorted(
-        CACHE_DIR.glob("snapshot-*.json"),
-        reverse=True,
-    )
-    prior_snapshots = []
-    for path in all_snapshots[1:4]:  # up to 3 prior weeks
-        try:
-            prior_snapshots.append(json.loads(path.read_text()))
-        except Exception:
-            continue
+    if resume_stage >= 0:
+        log.info(
+            "pipeline_resuming",
+            from_stage=resume_stage,
+            stage_name=state.get("stage_name"),
+        )
+
+    # Stage 1 — Load snapshot
+    if resume_stage >= 1:
+        snapshot = state["data"]["snapshot"]
+        prior_snapshots = state["data"]["prior_snapshots"]
+        log.info("checkpoint_skip_stage", stage=1, reason="already completed")
+    else:
+        snapshot = _read_cache("snapshot")
+        if not snapshot:
+            return {
+                "success": False,
+                "error": "No snapshot found. Run /analyze-week first.",
+                "week_start": week_start,
+            }
+
+        all_snapshot_files = sorted(
+            CACHE_DIR.glob("snapshot-*.json"), reverse=True
+        )
+        prior_snapshots = []
+        for path in all_snapshot_files[1:4]:
+            try:
+                prior_snapshots.append(json.loads(path.read_text()))
+            except Exception:
+                continue
+
+        await cp.save(stage=1, data={
+            "snapshot": snapshot,
+            "prior_snapshots": prior_snapshots,
+        })
 
     log.info(
         "snapshots_loaded",
@@ -383,29 +404,40 @@ async def run_weekly_pipeline(
         prior_weeks=len(prior_snapshots),
     )
 
-    # 3. Run pattern-detector and load-analyzer in parallel
-    patterns, load_analysis = await _run_parallel_analysis(
-        client, snapshot, prior_snapshots
-    )
+    # Stage 2 — Parallel analysis
+    if resume_stage >= 2:
+        patterns = state["data"]["patterns"]
+        load_analysis = state["data"]["load_analysis"]
+        log.info("checkpoint_skip_stage", stage=2, reason="already completed")
+    else:
+        patterns, load_analysis = await _run_parallel_analysis(
+            client, snapshot, prior_snapshots
+        )
 
-    # 4. Write intermediate results to cache
-    _write_cache("patterns", week_start, patterns)
-    _write_cache("load", week_start, load_analysis)
+        _write_cache("patterns", week_start, patterns)
+        _write_cache("load", week_start, load_analysis)
+
+        await cp.save(stage=2, data={
+            "snapshot": snapshot,
+            "prior_snapshots": prior_snapshots,
+            "patterns": patterns,
+            "load_analysis": load_analysis,
+        })
+
     log.info("intermediate_cache_written", week_start=week_start)
 
-    # 5. Bail early if both parallel agents failed — insight-writer has nothing to work with
-    both_failed = (
-        patterns.get("no_patterns_detected") is True
-        and load_analysis.get("summary") == "Load analysis unavailable"
-    )
-    if both_failed:
-        log.error("both_subagents_failed", week_start=week_start, error="Both parallel agents returned fallback state", error_type="SubagentFailure")
+    # Guard: both agents failed
+    if patterns.get("error") and load_analysis.get("error"):
+        log.error(
+            "both_subagents_failed",
+            error="Both parallel agents returned fallback state",
+            error_type="SubagentFailure",
+            week_start=week_start,
+        )
         return {
             "success": False,
-            "error": (
-                "Both pattern-detector and load-analyzer failed. "
-                "Check ANTHROPIC_API_KEY and network connectivity."
-            ),
+            "error": "Both pattern-detector and load-analyzer failed. "
+                     "Check ANTHROPIC_API_KEY and network connectivity.",
             "week_start": week_start,
             "user_id": user_id,
             "patterns_detected": 0,
@@ -414,42 +446,54 @@ async def run_weekly_pipeline(
             "alert_patterns": [],
         }
 
-    # 5. Run insight-writer with both results
-    combined_context = json.dumps(
-        {
+    # Stage 3 — Generate report
+    if resume_stage >= 3:
+        report = state["data"]["report"]
+        log.info("checkpoint_skip_stage", stage=3, reason="already completed")
+    else:
+        combined_context = json.dumps(
+            {
+                "snapshot": snapshot,
+                "patterns": patterns,
+                "load_analysis": load_analysis,
+            },
+            indent=2,
+        )
+
+        report_raw = await _run_subagent(
+            client,
+            agent_name="insight-writer",
+            system_prompt=INSIGHT_WRITER_PROMPT,
+            user_message=(
+                f"Write the Clarity weekly report using this data:\n\n"
+                f"{combined_context}"
+            ),
+        )
+
+        try:
+            report = _extract_json(report_raw)
+        except json.JSONDecodeError:
+            log.warning("insight_writer_invalid_json")
+            report = {
+                "report_markdown": report_raw,
+                "root_cause": "Analysis incomplete",
+                "word_count": len(report_raw.split()),
+                "patterns_addressed": [],
+            }
+
+        _write_cache("report", week_start, report)
+
+        await cp.save(stage=3, data={
             "snapshot": snapshot,
+            "prior_snapshots": prior_snapshots,
             "patterns": patterns,
             "load_analysis": load_analysis,
-        },
-        indent=2,
-    )
+            "report": report,
+        })
 
-    report_raw = await _run_subagent(
-        client,
-        agent_name="insight-writer",
-        system_prompt=INSIGHT_WRITER_PROMPT,
-        user_message=(
-            f"Write the Clarity weekly report using this data:\n\n"
-            f"{combined_context}"
-        ),
-    )
-
-    try:
-        report = _extract_json(report_raw)
-    except json.JSONDecodeError:
-        log.warning("insight_writer_invalid_json")
-        report = {
-            "report_markdown": report_raw,
-            "root_cause": "Analysis incomplete",
-            "word_count": len(report_raw.split()),
-            "patterns_addressed": [],
-        }
-
-    # 6. Write report to cache
-    _write_cache("report", week_start, report)
     log.info("report_written", week_start=week_start)
 
-    # 7. Evaluate alert triggers
+    # Stage 4 — Alerts and completion
     alert_patterns = _should_alert(patterns)
     if alert_patterns:
         log.info(
@@ -457,6 +501,15 @@ async def run_weekly_pipeline(
             count=len(alert_patterns),
             types=[p["type"] for p in alert_patterns],
         )
+        try:
+            from scripts.send_alert import dispatch_alerts
+            alert_result = await dispatch_alerts(alert_patterns)
+            log.info("alerts_dispatched", **alert_result)
+        except Exception as e:
+            log.error("alert_dispatch_failed", error=str(e))
+
+    # Clear checkpoint on success
+    cp.clear()
 
     result = {
         "success": True,
@@ -494,6 +547,9 @@ async def run_weekly_pipeline(
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
+    if str(Path(__file__).parent.parent) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).parent.parent))
 
     user_id = os.environ.get("CLARITY_DEV_USER_ID", "dev-user")
     week_start = sys.argv[1] if len(sys.argv) > 1 else None
