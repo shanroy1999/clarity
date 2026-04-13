@@ -285,6 +285,13 @@ automatically at the start of every Claude Code session.
 4. Checks the `.clarity-cache/` folder for the most recent snapshot file.
    If the snapshot is more than 8 days old, it warns that data may be stale.
    If there are more than 40 cache files, it warns to run `/cleanup-cache`.
+5. **Token health check** — if `.env` exists and `python3` is available, runs
+   an inline Python block that calls `check_all_tokens(user_id)` for the user
+   set in `CLARITY_DEV_USER_ID`. For each provider prints a status line:
+   `Token google: fresh [ok]` or `Token google: expiring [WARN]`. Todoist always
+   reports `static`. If `CLARITY_DEV_USER_ID` is not set (empty), this block
+   skips silently. Failures are also swallowed — token check problems must never
+   block session start.
 
 **Why the 2-second timeout matters:** Without a timeout, if the backend server
 is hung (running but not responding), this script would freeze the entire
@@ -309,12 +316,18 @@ via `/cleanup-cache`.
 - If the file IS in `agents/`, it checks three things:
   1. Does the content contain a docstring (text between `"""`)? Every agent
      file must have one explaining what it does.
-  2. Does the content contain `async def run(`? Every Clarity agent must
-     expose a single entry point called `run`.
+  2. Does the content contain `async def run(`? The hook enforces the
+     `agents/CLAUDE.md` convention of a single `run()` entry point.
   3. Is the file under 300 lines? Agents must stay small so other AI agents
      can read the whole file at once.
 - If any check fails, it exits with code 2, which cancels the write entirely
   and shows the error message to Claude, forcing it to fix the issue first.
+
+**Known inconsistency:** `orchestrator.py` uses `async def run_weekly_pipeline(`
+and `conversation.py` uses `async def respond(` — neither matches the `async def run(`
+pattern the hook checks for. Both files predate this hook registration or were
+written with the pattern bypassed. New agent files in `agents/` must use `run()` as
+the entry point name to pass the gate.
 
 **Why exit code 2 specifically:** Claude Code has a specific convention:
 exit 0 = success, exit 1 = hook itself failed, exit 2 = block Claude and
@@ -398,8 +411,8 @@ The temp file approach avoids all string escaping entirely.
 5. If we are within the retry budget, runs three checks on the report text:
    - Is it over 400 words? (Too long)
    - Does it cite fewer than 2 numbers? (Not data-driven enough)
-   - Does it contain generic phrases like "try to", "you should", "consider",
-     or "productivity"? (Forbidden language in Clarity reports)
+   - Does it contain any of these forbidden phrases: "try to", "you should",
+     "consider", "make sure", or "productivity"? Any of these triggers a fail.
 6. If any check fails, increments the retry counter, prints the reason,
    and exits 2 — which blocks Claude's response from being shown and
    forces it to regenerate
@@ -426,11 +439,17 @@ to count words or grep for "you should".
 **What it does:**
 - Reads the event type (SubagentStart or SubagentStop) and the agent ID
   from the JSON input
-- Appends a timestamped line to `.clarity-audit.jsonl`
+- Appends a plain-text timestamped line to `.clarity-audit.jsonl`:
+  `[HH:MM:SS] Agent started: <id>` or `[HH:MM:SS] Agent finished: <id>`
+
+**Note on format:** These lines are plain text, not JSON, even though they
+share the `.jsonl` file with the structured JSON entries from `audit-logger.sh`.
+The file is human-readable; the plain-text lines stand out visually. A future
+improvement would be to make agent-timer write structured JSON for consistency.
 
 This is simpler than the full audit logger — it just records when AI subagents
-(like the pattern detector) spin up and finish, so you can see how long
-pattern detection takes and confirm it ran before the report was generated.
+spin up and finish so you can confirm ordering (pattern-detector must finish
+before insight-writer runs).
 
 ---
 
@@ -832,8 +851,9 @@ the backend code and the database. Key tables:
 
 **users** — one row per Clarity user. Stores email and which data sources
 are connected (calendar, Gmail, Todoist, finance). OAuth tokens themselves
-are NOT stored here — they are in Supabase Vault (a secure encrypted store
-separate from the main database).
+are NOT stored here — they are in the `user_oauth_tokens` table (see below).
+In production, those tokens should be encrypted at rest using the `pgsodium`
+extension; this is documented in `migration 002` but not yet implemented.
 
 **weekly_snapshots** — one row per user per week. Stores all the derived
 signals from calendar, email, tasks, and finance. No raw content.
@@ -914,9 +934,24 @@ Layer-specific rules: `backend/CLAUDE.md`
   `check_all_tokens(user_id)` reports status of all provider tokens
   without triggering a refresh — used by the session-start hook.
 
-**Hook endpoint** (`POST /api/hooks/session-stop`):
-- Validates `X-Clarity-Secret` header against `CLARITY_HOOK_SECRET` env var
-- Receives notification when a Claude Code session ends
+**Routes:**
+
+`GET /health` — returns `{"status": "ok", "service": "clarity-api"}`. Pinged by
+`session-start.sh` to check whether the backend is running.
+
+`POST /api/hooks/session-stop` — validates `X-Clarity-Secret` header against
+`CLARITY_HOOK_SECRET` env var, then logs the session ID. Called by the Stop hook
+in `settings.json` as an async HTTP POST.
+
+`POST /api/pipeline/run` — triggers `run_weekly_pipeline(user_id, week_start)` from
+`agents/orchestrator.py`. Accepts `{"user_id": "...", "week_start": "YYYY-MM-DD"}`.
+`week_start` is optional — defaults to current week. Returns the full pipeline
+result dict including report markdown, pattern count, load score, and alert triggers.
+
+`POST /api/conversation` — calls `respond(message, history, user_id)` from
+`agents/conversation.py`. Accepts `{"user_id": "...", "message": "...", "history": [...]}`.
+Returns `{"response": "...", "history": [...]}` — the caller owns history persistence
+across requests.
 
 **Financial MCP server** (`backend/mcp_servers/financial.py`):
 This is the first real application code written. It is a stdio MCP server
@@ -980,15 +1015,43 @@ Uses `AsyncAnthropic` so the event loop is not blocked while waiting for the API
 **`agents/orchestrator.py`** — now built. Entry point: `run_weekly_pipeline(user_id, week_start)`.
 
 Pipeline steps:
-1. Loads current snapshot from `.clarity-cache/snapshot-*.json`
-2. Loads up to 3 prior snapshots for cross-week context
-3. Calls `_run_parallel_analysis()` — runs pattern-detector and load-analyzer
+1. **API key guard** — checks `ANTHROPIC_API_KEY` is set and does not start with
+   `"your-"` (a placeholder value). Returns `success: false` immediately if not —
+   no partial work, no silent failure.
+2. Loads current snapshot from `.clarity-cache/snapshot-*.json`
+3. Loads up to 3 prior snapshots for cross-week context
+4. Calls `_run_parallel_analysis()` — runs pattern-detector and load-analyzer
    simultaneously using `asyncio.create_task()` + `asyncio.gather()`
-4. Writes `patterns-{date}.json` and `load-{date}.json` to cache
-5. Calls insight-writer with combined context (snapshot + patterns + load)
-6. Writes `report-{date}.json` to cache
-7. Evaluates which patterns warrant alerts (HIGH severity only)
-8. Returns pipeline result dict
+5. Writes `patterns-{date}.json` and `load-{date}.json` to cache (even if they
+   are fallback values — this preserves a debug record of the failed attempt)
+6. **Early exit if both parallel agents failed** — if pattern-detector returned
+   `no_patterns_detected: true` and load-analyzer returned `"Load analysis unavailable"`,
+   the pipeline exits here with `success: false`. Cache files are already written
+   at this point. Calling insight-writer with empty context would produce a
+   hallucinated report; better to fail loudly and clearly.
+7. Calls insight-writer with combined context (snapshot + patterns + load)
+8. Writes `report-{date}.json` to cache
+9. Evaluates which patterns warrant alerts (HIGH severity only)
+10. Returns pipeline result dict
+
+**`_extract_json` helper:** LLMs sometimes wrap JSON output in markdown code fences
+(` ```json\n...\n``` `) or append trailing explanation text after the closing brace.
+`json.loads` fails on both. `_extract_json` finds the first `{`, walks forward
+counting brace depth, and stops at the matching `}` — extracting exactly the JSON
+object regardless of surrounding text. `_run_subagent` also strips code fences
+explicitly before parsing, so both defences run in sequence.
+
+**`_run_subagent` response handling:** Iterates over `response.content` blocks to
+find the first text block (rather than assuming `content[0]` is always text), then
+strips code fences: any response starting with ` ``` ` has its first and last lines
+removed. This handles both ` ```json ` and plain ` ``` ` wrapping.
+
+**Error logging:** Every `log.error` call carries `error=str(exc)` and
+`error_type=type(exc).__name__`. The actual exception class — `APIConnectionError`,
+`RateLimitError`, `JSONDecodeError` — appears in the structured log without
+hardcoding strings, making errors filterable by type in log aggregation tools.
+Non-exception errors use descriptive string constants: `"ConfigurationError"` for
+a missing API key, `"SubagentFailure"` when both parallel agents return fallback state.
 
 **Why parallel matters:** Both agents make Anthropic API calls that take several
 seconds. `create_task` schedules both before awaiting either — both HTTP requests

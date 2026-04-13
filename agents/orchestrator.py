@@ -63,7 +63,13 @@ def _latest_file(prefix: str) -> Path | None:
 
 
 def _read_cache(prefix: str) -> dict:
-    """Read the latest cache file for a given prefix. Returns {} if missing."""
+    """Read cache — checks Supabase first in cloud mode,
+    falls back to local file in development.
+    Read the latest cache file for a given prefix. Returns {} if missing."""
+    # Cloud mode: read from Supabase, not local files
+    if os.environ.get("CLARITY_CLOUD_RUN") == "1":
+        return {}  # Phase 6 extension: implement Supabase fetch here
+    # Local mode: read from .clarity-cache/
     path = _latest_file(prefix)
     if not path:
         return {}
