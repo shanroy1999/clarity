@@ -1,0 +1,16 @@
+{
+  "week_start": "2026-04-20",
+  "total_meeting_hours": 0,
+  "meetings_per_day": {
+    "Mon": 0,
+    "Tue": 0,
+    "Wed": 0,
+    "Thu": 0,
+    "Fri": 0
+  },
+  "back_to_back_count": 0,
+  "free_evening_count": 7,
+  "longest_focus_block_hours": 8.0,
+  "overload_days": [],
+  "boundary_violations": []
+}

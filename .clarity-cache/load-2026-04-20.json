@@ -1,0 +1,21 @@
+{
+  "week_start": "2026-04-20",
+  "total_load_score": 72,
+  "capacity_exceeded_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri"
+  ],
+  "primary_load_driver": "task",
+  "financial_stress_present": true,
+  "load_by_day": {
+    "Mon": 14,
+    "Tue": 14,
+    "Wed": 16,
+    "Thu": 18,
+    "Fri": 10
+  },
+  "summary": "A week of zero task execution despite freed-up time \u2014 no meetings at all, yet nothing got done; the load was invisible but crushing."
+}

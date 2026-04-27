@@ -1,0 +1,65 @@
+{
+  "week_start": "2026-04-20",
+  "patterns_detected": [
+    {
+      "type": "avoidance_loop",
+      "severity": "HIGH",
+      "evidence": [
+        "0/6 tasks completed this week (down from 2/11 last week)",
+        "Financial tasks: 0 completed, moved 5 times in one week",
+        "Same 3 tasks flagged overdue every day Mon\u2013Fri by Todoist",
+        "TurboTax tax filing: 3 separate nudge emails unanswered (filing deadline pressure)",
+        "2nd consecutive week with 0 financial task completions (Apr 7: 0/2 done)"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "social_withdrawal",
+      "severity": "MEDIUM",
+      "evidence": [
+        "Personal tasks: 0 completed, moved 5 times",
+        "LinkedIn connection requests pending but not actioned",
+        "Job recruiter email (up to $280k role) unanswered all week",
+        "2 consecutive weeks of 0 personal task completions"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "high_stakes_neglect",
+      "severity": "HIGH",
+      "evidence": [
+        "USCIS 'action taken on your case' email Apr 22 \u2014 no follow-up visible",
+        "TurboTax: 'missing field', 'file now, avoid extra charges' \u2014 2+ unanswered",
+        "Gmail storage 99% full \u2014 unaddressed all week",
+        "6 unanswered actionable threads despite 213 emails received and all read"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "high"
+}

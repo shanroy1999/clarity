@@ -1,0 +1,14 @@
+{
+  "week_start": "2026-04-20",
+  "total_emails_received": 213,
+  "unread_count": 0,
+  "late_night_sends": 0,
+  "unanswered_threads": 6,
+  "notable_signals": {
+    "apartment_hunt_resolved": true,
+    "uscis_case_action": true,
+    "turbotax_incomplete": true,
+    "gmail_storage_99pct_full": true,
+    "recruiter_outreach": 1
+  }
+}
