@@ -1,0 +1,75 @@
+{
+  "week_start": "2026-04-27",
+  "patterns_detected": [
+    {
+      "type": "task_system_abandonment",
+      "severity": "HIGH",
+      "evidence": [
+        "Completion rate dropped from 18% (2/11 tasks) to 0% (0/14 tasks) — systematic abandonment across all 7 days",
+        "All 14 tasks locked in 'admin' category only, with 3 marked overdue, indicating no task mobility or progress",
+        "Context signals explicitly flag 'task_system_unused': true, suggesting task tool was set up but abandoned for real work",
+        "Zero completion across every single day (Mon-Sun) — not a workload issue but active non-engagement",
+        "This represents a 3-week pattern: prior week showed 18% completion with mixed categories; now 0% in single category"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "depletion_recovery_swing",
+      "severity": "MEDIUM",
+      "evidence": [
+        "Calendar load went from overloaded (14 hrs, 6 back-to-back, 2 overload days) to completely clear (0 hrs, 0 back-to-back, 0 overload days)",
+        "This is not a gradual reduction but a sharp reversal — suggests external event caused major schedule reset",
+        "Context: apartment lease signed, financial accounts being setup — major life transitions occurring",
+        "Prior week showed depletion_cascade (LOW severity) from meeting load; current week has zero meetings",
+        "Longest focus block increased from 1.5 hours (fragmented) to 8 hours (restored), but no task output suggests focus is now avoidant, not productive",
+        "Free evenings went from 1 to 7 — boundary pressure removed but not translating to task completion"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "administrative_task_paralysis",
+      "severity": "HIGH",
+      "evidence": [
+        "All 14 tasks are in 'admin' category — zero diversification across personal, financial, communication, or work",
+        "Admin category flagged as most_avoided_category with 0 of 14 completed and 3 overdue",
+        "Prior week showed 'personal' as most_avoided (3 tasks, 0 completed), indicating task avoidance moves between categories",
+        "This week, avoidance is concentrated into a single administrative bucket with no escape routes",
+        "Large transfer detected and financial accounts being setup — suggests admin tasks are likely compliance/setup related",
+        "Task volume actually increased from 11 to 14 (27% rise), yet completion rate dropped to zero"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "high"
+}

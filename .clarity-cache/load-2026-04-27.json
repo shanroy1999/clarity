@@ -1,0 +1,58 @@
+{
+  "week_start": "2026-04-27",
+  "generated_at": "2026-05-04",
+  "total_load_score": 77,
+  "capacity_exceeded_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  "primary_load_driver": "life_transition",
+  "financial_stress_present": true,
+  "load_by_day": {
+    "Mon": 13,
+    "Tue": 13,
+    "Wed": 12,
+    "Thu": 10,
+    "Fri": 10,
+    "Sat": 10,
+    "Sun": 9
+  },
+  "summary": "A deceptively quiet week on paper — zero meetings, low email — but dominated by invisible life-transition load: apartment lease signed, large financial transfer detected, 14 admin tasks with 0% completion across all 7 days.",
+  "score_components": {
+    "meeting_load": 5,
+    "task_backlog": 32,
+    "financial_stress": 25,
+    "life_transition_surcharge": 10,
+    "email_residual": 5,
+    "notes": {
+      "meeting_load": "0 meeting hours scores 0 raw, but +5 for depletion-swing context after a 14-hour prior week",
+      "task_backlog": "14 tasks x2 base (28) + 3 overdue x1.5 (4.5), rounded to 32; 0% completion applied as full-weight penalty",
+      "financial_stress": "large_transfer_detected=true triggers floor of 20; account setup complexity adds 5; spend_vs_budget_pct null (data gap) does not reduce score",
+      "life_transition_surcharge": "lease signing + financial account setup = cognitive overhead not captured in raw signals; +10 applied",
+      "email_residual": "64% unread rate (32/50) + 2 unanswered threads = +5"
+    }
+  },
+  "recommendation_data": {
+    "primary_pattern": "administrative_task_paralysis",
+    "secondary_pattern": "depletion_recovery_swing",
+    "intervention_urgency": "HIGH",
+    "insight_hooks": [
+      "14 admin tasks, 0 completed, 3 overdue — the task system was open all week but never used",
+      "Week cleared of all meetings after a 14-hour overloaded prior week — relief turned into paralysis, not recovery",
+      "Large financial transfer and lease signing represent real cognitive weight that does not appear in meeting or email metrics",
+      "Email volume dropped 66% (147 to 50) but 64% unread rate suggests passive inbox avoidance",
+      "The user had maximum theoretical focus time (8-hour blocks, 7 free evenings) but zero task output — structural avoidance, not capacity shortage"
+    ],
+    "comparison_to_prior_week": {
+      "meeting_hours_delta": -14,
+      "task_completion_delta": -0.18,
+      "email_volume_delta": -97,
+      "load_score_prior_week": null,
+      "interpretation": "Surface signals improved dramatically; underlying load did not — the life transition transferred cognitive pressure from calendar to invisible admin paralysis"
+    },
+    "for_insight_writer": {
+      "tone_signal": "gentle_confrontation",
+      "lead_with": "The week looked free but felt heavy",
+      "core_tension": "Maximum available time, zero task output — this is not a capacity problem",
+      "avoid": "Framing as productivity failure; frame as transition overwhelm instead",
+      "financial_angle": "Do not alarm about spend (data gap, $0 tracked) but acknowledge the large transfer as real stress even if the number is not visible"
+    }
+  }
+}

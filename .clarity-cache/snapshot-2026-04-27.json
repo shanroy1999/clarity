@@ -1,0 +1,34 @@
+{
+  "week_start": "2026-04-27",
+  "total_meeting_hours": 0,
+  "meetings_per_day": {"Mon": 0, "Tue": 0, "Wed": 0, "Thu": 0, "Fri": 0, "Sat": 0, "Sun": 0},
+  "back_to_back_count": 0,
+  "free_evening_count": 7,
+  "longest_focus_block_hours": 8.0,
+  "overload_days": [],
+  "boundary_violations": [],
+  "total_emails_received": 50,
+  "unread_count": 32,
+  "late_night_sends": 0,
+  "unanswered_threads": 2,
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "admin": {"total": 14, "completed": 0, "overdue": 3}
+  },
+  "most_avoided_category": "admin",
+  "zero_completion_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  "total_spend": 0.0,
+  "spend_vs_budget_pct": null,
+  "high_spend_categories": [],
+  "by_category": {},
+  "context_signals": {
+    "apartment_lease_signed": true,
+    "financial_accounts_being_setup": true,
+    "large_transfer_detected": true,
+    "task_system_unused": true,
+    "zero_meetings_vs_14hrs_prev_week": true,
+    "email_volume_vs_prev_week": "50_vs_147"
+  }
+}

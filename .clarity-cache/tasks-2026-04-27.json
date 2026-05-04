@@ -1,0 +1,13 @@
+{
+  "week_start": "2026-04-27",
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "admin": {"total": 14, "completed": 0, "overdue": 3}
+  },
+  "most_avoided_category": "admin",
+  "zero_completion_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  "overdue_count": 3,
+  "notes": "All 14 tasks are Todoist default onboarding tasks (added 2026-04-13). 3 have past due dates (Apr 12-13). No user-created tasks found. Todoist sent overdue reminders on both May 2 and May 3."
+}

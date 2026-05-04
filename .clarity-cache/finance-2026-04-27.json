@@ -1,0 +1,15 @@
+{
+  "week_start": "2026-04-27",
+  "total_spend": 0.0,
+  "spend_vs_budget_pct": null,
+  "high_spend_categories": [],
+  "by_category": {},
+  "data_gap": true,
+  "notes": "No transactions found in data/transactions.csv for this week range. Email signals indicate: DoorDash delivery on May 2 (amount unknown), INR 641 Axis Bank UPI debit May 2, INR 3000 mutual fund SIP executed May 4. Credit Karma flagged a large transfer in/out (likely apartment deposit). Primary spend data unavailable in GBP this week.",
+  "prev_week_avg_spend_gbp": 430.57,
+  "email_derived_signals": {
+    "food_delivery_events": 1,
+    "financial_account_activity": "high",
+    "large_transfer_detected": true
+  }
+}
