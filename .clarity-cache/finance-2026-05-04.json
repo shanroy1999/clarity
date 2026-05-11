@@ -1,0 +1,11 @@
+{
+  "week_start": "2026-05-04",
+  "total_spend": 7.49,
+  "spend_vs_budget_pct": 2.2,
+  "high_spend_categories": [],
+  "by_category": {
+    "subscriptions": 7.49
+  },
+  "data_coverage": "partial",
+  "note": "CSV transactions only cover 2026-04-07. Chase email alert confirms $7.49 Amazon Prime on May 9. Multiple food delivery receipts in inbox suggest significant untracked spend."
+}

@@ -1,0 +1,72 @@
+{
+  "week_start": "2026-05-04",
+  "total_meeting_hours": 0.0,
+  "meetings_per_day": {
+    "Mon": 0,
+    "Tue": 0,
+    "Wed": 0,
+    "Thu": 0,
+    "Fri": 0,
+    "Sat": 0,
+    "Sun": 0
+  },
+  "back_to_back_count": 0,
+  "free_evening_count": 7,
+  "longest_focus_block_hours": 8.0,
+  "overload_days": [],
+  "boundary_violations": [],
+  "total_emails_received": 112,
+  "unread_count": 88,
+  "late_night_sends": 0,
+  "unanswered_threads": 8,
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "work": {
+      "total": 13,
+      "completed": 0,
+      "moved": 0
+    },
+    "communication": {
+      "total": 1,
+      "completed": 0,
+      "moved": 0
+    },
+    "financial": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "personal": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "admin": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    }
+  },
+  "most_avoided_category": "work",
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
+  "total_spend": 7.49,
+  "spend_vs_budget_pct": 2.2,
+  "high_spend_categories": [],
+  "by_category": {
+    "subscriptions": 7.49
+  },
+  "sent_emails": 0,
+  "food_delivery_receipts": 8,
+  "overdue_tasks": 3,
+  "finance_note": "CSV transactions only cover 2026-04-07. Chase email alert confirms $7.49 Amazon Prime on May 9. Multiple food delivery receipts in inbox suggest significant untracked spend."
+}

@@ -1,0 +1,23 @@
+{
+  "week_start": "2026-05-04",
+  "total_load_score": 28,
+  "capacity_exceeded_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri"
+  ],
+  "primary_load_driver": "task",
+  "financial_stress_present": false,
+  "load_by_day": {
+    "Mon": 4,
+    "Tue": 4,
+    "Wed": 4,
+    "Thu": 4,
+    "Fri": 4,
+    "Sat": 2,
+    "Sun": 2
+  },
+  "summary": "No meetings this entire week, yet zero tasks were completed; the load is entirely a stalled backlog of 14 tasks (3 overdue since April), unresolved by a completely disengaged week."
+}

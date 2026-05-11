@@ -1,0 +1,66 @@
+{
+  "week_start": "2026-05-04",
+  "patterns_detected": [
+    {
+      "type": "avoidance_loop",
+      "severity": "HIGH",
+      "evidence": [
+        "3 tasks overdue since April 12-13 \u2014 still incomplete 4 weeks later; Todoist sent overdue reminders on May 8, May 9, and May 10",
+        "0 tasks completed across all 14 active tasks \u2014 0% completion rate for every single day of the week (Mon through Sun)",
+        "April 7 week showed 18% completion (2/11 tasks) with personal/financial categories at 0% \u2014 now the whole system is at 0%",
+        "Task system has no real personal or financial tasks \u2014 user is not even capturing obligations, only unfinished onboarding tasks remain"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "social_withdrawal",
+      "severity": "MEDIUM",
+      "evidence": [
+        "0 emails sent all week; 112 received, 88 unread (78.6% unread rate)",
+        "8 unanswered communication threads \u2014 6 are apartment inquiries that have been waiting days to weeks for a reply",
+        "Active housing search (at least 6 communities reaching out) with zero follow-through on any of them",
+        "LinkedIn connection invitation from Sachin (May 9) unanswered; prior week had 11 unanswered threads"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 1
+    },
+    {
+      "type": "boundary_erosion",
+      "severity": "MEDIUM",
+      "evidence": [
+        "7 food delivery orders in 4 days (Thu-Sun), including Dairy Queen at 2:28 AM Friday, Signature Grill at 12:18 AM Saturday, DQ again at 12:50 AM Saturday",
+        "Three consecutive late-night/early-morning orders (after midnight) suggests severely disrupted sleep schedule",
+        "Prior week (April 7): 4 late-night email sends after 9 PM \u2014 boundary erosion pattern present 2 weeks running, shifted form from work to food delivery"
+      ],
+      "days_affected": [
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "high"
+}

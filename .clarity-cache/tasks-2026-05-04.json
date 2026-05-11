@@ -1,0 +1,45 @@
+{
+  "week_start": "2026-05-04",
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "work": {
+      "total": 13,
+      "completed": 0,
+      "moved": 0
+    },
+    "communication": {
+      "total": 1,
+      "completed": 0,
+      "moved": 0
+    },
+    "financial": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "personal": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "admin": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    }
+  },
+  "most_avoided_category": "work",
+  "overdue_count": 3,
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
+  "todoist_daily_reminders_with_overdue": 3
+}
