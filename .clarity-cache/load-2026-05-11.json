@@ -1,0 +1,20 @@
+{
+  "week_start": "2026-05-11",
+  "total_load_score": 31,
+  "capacity_exceeded_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu"
+  ],
+  "primary_load_driver": "task",
+  "financial_stress_present": false,
+  "load_by_day": {
+    "Mon": 40,
+    "Tue": 40,
+    "Wed": 40,
+    "Thu": 40,
+    "Fri": 14
+  },
+  "summary": "A meeting-free week with a full task backlog and zero completions across four consecutive days \u2014 the load is driven entirely by deferred admin work, not time pressure."
+}

@@ -1,0 +1,23 @@
+{
+  "week_start": "2026-05-11",
+  "total_spend": null,
+  "weekly_avg_3month": 33.12,
+  "spend_vs_budget_pct": null,
+  "high_spend_categories": [
+    "housing",
+    "food_delivery"
+  ],
+  "spend_by_category": {
+    "housing": 420.49,
+    "food_delivery": null,
+    "shopping": null
+  },
+  "financial_activity_senders": [
+    "doordash.com",
+    "appfolio.com",
+    "chase.com"
+  ],
+  "rent_paid_this_week": true,
+  "food_delivery_order_count": 4,
+  "notes": "transactions.csv does not cover May 2026; signals derived from email sender metadata only"
+}

@@ -1,0 +1,40 @@
+{
+  "week_start": "2026-05-11",
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "financial": {
+      "total": 0,
+      "completed": 0,
+      "overdue": 0
+    },
+    "personal": {
+      "total": 0,
+      "completed": 0,
+      "overdue": 0
+    },
+    "communication": {
+      "total": 1,
+      "completed": 0,
+      "overdue": 0
+    },
+    "work": {
+      "total": 3,
+      "completed": 0,
+      "overdue": 0
+    },
+    "admin": {
+      "total": 10,
+      "completed": 0,
+      "overdue": 3
+    }
+  },
+  "most_avoided_category": "admin",
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu"
+  ]
+}

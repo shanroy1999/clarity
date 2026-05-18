@@ -1,0 +1,10 @@
+{
+  "report_markdown": "# Clarity Weekly Report \u2014 Week of May 11, 2026\n\nZero meetings. 8 hours of open time every day. You completed 0 of 14 tasks \u2014 not one, across 4 consecutive days. That is not a scheduling problem.\n\n**Depletion cascade (HIGH \u2014 2 weeks running)**\n\nApril 7 gave you 14 meeting hours and broke your ability to execute Mon\u2013Wed. This week removed the meetings entirely and the paralysis held. The trigger is gone; the response remained. 10 admin tasks and 3 overdue items sat at a load score of 40 every day Mon\u2013Thu without anything touching them.\n\n**Avoidance loop (HIGH \u2014 2 weeks running)**\n\nLast week: personal tasks rescheduled 4 times, financial tasks rescheduled 3 times \u2014 0 completions. This week: admin took the full weight (10 tasks, 0 done, 3 overdue), work (3 tasks, 0 done), communication (1 task, 0 done). The category shifts. The mechanism does not. You read every email \u2014 unread count is 0 \u2014 then sent 1 reply all week against 99 received. Three threads asked something of you. None got answered.\n\n**Social withdrawal (MEDIUM \u2014 1 week)**\n\n1 email sent. The prior week had 11 unanswered threads; this week had 3, but the drop came from fewer incoming demands, not from you resolving anything. The communication task stayed on the list. The inbox is clear because you read everything \u2014 just nothing goes back out.\n\n**The one honest thing:** You ordered food 4 times and paid rent. You are keeping yourself alive and sidestepping every decision or response beyond that.\n\nThe root cause is two consecutive weeks of unprocessed depletion \u2014 April's 14-hour meeting load burned your reserves, and the empty week that followed did not restore them; it just made the avoidance visible.",
+  "root_cause": "Two consecutive weeks of unprocessed depletion \u2014 April's meeting load burned reserves, and the free week that followed did not restore them, it just removed the excuse.",
+  "word_count": 297,
+  "patterns_addressed": [
+    "depletion_cascade",
+    "avoidance_loop",
+    "social_withdrawal"
+  ]
+}
