@@ -1,0 +1,28 @@
+{
+  "week_start": "2026-05-18",
+  "total_tasks": 14,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "admin": 14,
+    "work": 0,
+    "personal": 0,
+    "financial": 0,
+    "communication": 0
+  },
+  "most_avoided_category": "admin",
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
+  "overdue_count": 3,
+  "real_tasks_added_this_week": 0,
+  "signals": {
+    "task_system_unused": true,
+    "no_task_engagement": true
+  }
+}

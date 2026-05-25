@@ -1,0 +1,59 @@
+{
+  "week_start": "2026-05-18",
+  "total_meeting_hours": 0.0,
+  "meetings_per_day": {
+    "Mon": 0,
+    "Tue": 0,
+    "Wed": 0,
+    "Thu": 0,
+    "Fri": 0,
+    "Sat": 0,
+    "Sun": 0
+  },
+  "back_to_back_count": 0,
+  "free_evening_count": 7,
+  "longest_focus_block_hours": 8.0,
+  "overload_days": [],
+  "total_emails_received": 95,
+  "unread_count": 47,
+  "late_night_sends": 0,
+  "unanswered_threads": 1,
+  "job_rejection_count": 3,
+  "total_tasks": 14,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "admin": 14,
+    "work": 0,
+    "personal": 0,
+    "financial": 0,
+    "communication": 0
+  },
+  "most_avoided_category": "admin",
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
+  "overdue_count": 3,
+  "total_spend": 1767.75,
+  "spend_vs_budget_pct": 0.0,
+  "high_spend_categories": {
+    "housing": 1759.95,
+    "entertainment": 7.8
+  },
+  "context_signals": {
+    "job_search_active": true,
+    "job_rejections_this_week": 3,
+    "major_life_transition_move": true,
+    "move_destination": "Seattle",
+    "move_date": "2026-06-01",
+    "rent_paid_first_month": 1759.95,
+    "task_system_unused": true,
+    "housing_search_active": true,
+    "unanswered_actionable_thread_count": 1
+  }
+}

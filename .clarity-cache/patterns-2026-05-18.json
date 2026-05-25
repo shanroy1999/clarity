@@ -1,0 +1,68 @@
+{
+  "week_start": "2026-05-18",
+  "patterns_detected": [
+    {
+      "type": "social_withdrawal",
+      "severity": "HIGH",
+      "evidence": [
+        "0 outbound emails sent in 7 days despite 95 received",
+        "State Farm insurance agent sent 3 follow-up emails (May 15, 15, 21) \u2014 zero replies",
+        "April week: 4 late-night sends, 11 unanswered threads; now 0 sends total",
+        "1 actionable thread unanswered 10+ days with deadline (renter's insurance needed before June 1 move)"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "avoidance_loop",
+      "severity": "MEDIUM",
+      "evidence": [
+        "14 tasks in Todoist \u2014 all tutorial stubs from April 13 signup \u2014 0% completion rate",
+        "3 overdue tasks (Apr 12-13) never cleared in 6 weeks",
+        "April: personal tasks most avoided, moved 4 times; May: task system abandoned entirely",
+        "No real user tasks ever added to Todoist; system set up and immediately neglected"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 2,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "depletion_cascade",
+      "severity": "MEDIUM",
+      "evidence": [
+        "April: 14 meeting hours, 6 back-to-back, boundary violations \u2192 May: 0 meetings, empty calendar",
+        "3 job rejections received this week during active job search",
+        "Simultaneous load: job search + cross-country move (June 1) + apartment setup + flight booked (May 30)",
+        "47 unread emails, 0 sent \u2014 consumption without output signals cognitive depletion"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 1
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "high"
+}

@@ -1,0 +1,31 @@
+{
+  "week_start": "2026-05-18",
+  "total_load_score": 54,
+  "capacity_exceeded_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
+  "primary_load_driver": "combined",
+  "financial_stress_present": false,
+  "load_by_day": {
+    "Mon": 40,
+    "Tue": 50,
+    "Wed": 55,
+    "Thu": 60,
+    "Fri": 65,
+    "Sat": 58,
+    "Sun": 52
+  },
+  "summary": "A deceptively quiet calendar masks peak transition load: zero meeting hours, zero task completions, 3 job rejections, and a cross-country move 7 days out with $1,760 in rent already paid but renter's insurance still not arranged.",
+  "load_components": {
+    "meeting_load": 0,
+    "task_backlog": 28,
+    "financial_transition_stress": 15,
+    "life_event_load": 11
+  }
+}

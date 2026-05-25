@@ -1,0 +1,15 @@
+{
+  "week_start": "2026-05-18",
+  "total_spend": 1767.75,
+  "spend_vs_budget_pct": 0.0,
+  "high_spend_categories": {
+    "housing": 1759.95,
+    "entertainment": 7.8
+  },
+  "signals": {
+    "large_housing_payment": true,
+    "credit_alerts_triggered": 2,
+    "food_delivery_multiple": true
+  },
+  "data_coverage": "partial_email_derived"
+}
