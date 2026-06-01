@@ -1,0 +1,70 @@
+{
+  "week_start": "2026-05-25",
+  "patterns_detected": [
+    {
+      "type": "avoidance_loop",
+      "severity": "HIGH",
+      "evidence": [
+        "0% task completion rate across all 5 weekdays",
+        "14 tasks in system are all April 13 onboarding templates \u2014 never converted to real personal tasks",
+        "Task management tool active 7+ weeks with zero personal tasks created",
+        "April snapshot also flagged personal as most_avoided_category with 0/3 personal tasks completed",
+        "3 overdue tasks from April still sitting uncompleted"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "boundary_erosion",
+      "severity": "MEDIUM",
+      "evidence": [
+        "125 emails received \u2014 major life logistics spike vs 147 in April but now without any work meetings to buffer it",
+        "State Farm insurance correction sent at 00:31Z May 30 (active at midnight)",
+        "Lugless support escalation sent May 27 \u2014 luggage pickup failure requiring active intervention",
+        "Gmail storage at 1% remaining \u2014 accumulated inbox never cleared",
+        "Campus emergency alerts (Illini-Alert hazmat) handled on moving day",
+        "Rent due June 1 and new apartment move-in June 1 \u2014 two simultaneous deadlines"
+      ],
+      "days_affected": [
+        "Mon",
+        "Wed",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "historical_frequency": 1,
+      "weeks_consecutive": 2
+    },
+    {
+      "type": "depletion_cascade",
+      "severity": "MEDIUM",
+      "evidence": [
+        "Calendar empty (0 meeting hours) but cognitive load was maximum \u2014 relocation, job search, financial restructuring simultaneously",
+        "5 new financial accounts opened in one week (Ally, Amex Rewards Checking, Marcus, Forbright, Fidelity)",
+        "Cross-country relocation on May 30: 6.8h of travel across Champaign \u2192 Dallas \u2192 Seattle",
+        "Job rejection (Blue Origin) received during travel weekend with no processing time",
+        "Recruiter outreach (BestEx Research) still unanswered \u2014 capacity to respond = zero",
+        "0 task completions on all 5 weekdays despite having time \u2014 the energy was depleted elsewhere"
+      ],
+      "days_affected": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "historical_frequency": 0,
+      "weeks_consecutive": 1
+    }
+  ],
+  "no_patterns_detected": false,
+  "analysis_confidence": "high"
+}

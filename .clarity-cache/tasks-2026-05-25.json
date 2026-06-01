@@ -1,0 +1,43 @@
+{
+  "week_start": "2026-05-25",
+  "total_tasks": 14,
+  "completed": 0,
+  "completion_rate": 0.0,
+  "tasks_by_category": {
+    "admin": {
+      "total": 13,
+      "completed": 0,
+      "moved": 0
+    },
+    "personal": {
+      "total": 1,
+      "completed": 0,
+      "moved": 0
+    },
+    "work": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "financial": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    },
+    "communication": {
+      "total": 0,
+      "completed": 0,
+      "moved": 0
+    }
+  },
+  "most_avoided_category": "personal",
+  "zero_completion_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri"
+  ],
+  "overdue_count": 3,
+  "notes": "All tasks are Todoist onboarding templates; no real personal tasks created"
+}

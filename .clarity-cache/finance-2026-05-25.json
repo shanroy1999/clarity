@@ -1,0 +1,17 @@
+{
+  "week_start": "2026-05-25",
+  "data_source": "email_inference",
+  "total_spend": 3142.0,
+  "spend_vs_budget_pct": 92.0,
+  "high_spend_categories": [
+    "moving_costs",
+    "transfers"
+  ],
+  "by_category": {
+    "large_transfers": 3101.0,
+    "subscriptions": 4.99,
+    "investments": 36.0
+  },
+  "new_accounts_opened": 5,
+  "financial_complexity_spike": true
+}

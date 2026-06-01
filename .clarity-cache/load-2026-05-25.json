@@ -1,0 +1,21 @@
+{
+  "week_start": "2026-05-25",
+  "total_load_score": 74,
+  "capacity_exceeded_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri"
+  ],
+  "primary_load_driver": "combined",
+  "financial_stress_present": true,
+  "load_by_day": {
+    "Mon": 12,
+    "Tue": 12,
+    "Wed": 14,
+    "Thu": 12,
+    "Fri": 14
+  },
+  "summary": "Zero meetings but maximum hidden load \u2014 relocation, 5 new financial accounts, job search under pressure, and every task managed through 125 inbox emails rather than a task system."
+}
